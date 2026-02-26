@@ -14,7 +14,7 @@ interface PhotoCardProps {
   hue?: number;
 }
 
-export const PhotoCard: React.FC<PhotoCardProps> = ({ id, url, x, y, width, height, aspectRatio, hue = 0 }) => {
+export const PhotoCard: React.FC<PhotoCardProps> = ({ id, url, x, y, width, height, aspectRatio, hue: _hue = 0 }) => {
   const { updatePhotoPosition, updatePhotoSize, removePhoto } = useMixerStore();
   const resizeStart = React.useRef<{ x: number; y: number; width: number; height: number } | null>(null);
   

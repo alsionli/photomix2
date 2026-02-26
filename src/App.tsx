@@ -1,4 +1,3 @@
-import React from 'react';
 import { DeviceContainer } from './components/DeviceContainer';
 import { StyleSelector } from './components/StyleSelector';
 import { MixerCanvas } from './components/MixerCanvas';

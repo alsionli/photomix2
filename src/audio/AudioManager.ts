@@ -130,7 +130,7 @@ export class AudioManager {
         modulationIndex: 32,
         resonance: 4000,
         octaves: 1.5
-      }).connect(this.drumChannel)
+      } as unknown as Tone.MetalSynthOptions).connect(this.drumChannel)
     };
 
     this.bass = new Tone.MonoSynth({

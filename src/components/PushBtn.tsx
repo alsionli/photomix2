@@ -2,7 +2,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { cn } from '../utils/cn';
 
-interface PushBtnProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
+interface PushBtnProps extends Omit<React.ButtonHTMLAttributes<HTMLButtonElement>, 'onDrag' | 'onDragStart' | 'onDragEnd' | 'onAnimationStart'> {
   active?: boolean;
   label?: string;
   variant?: 'default' | 'orange' | 'white';
