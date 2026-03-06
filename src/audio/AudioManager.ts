@@ -220,94 +220,157 @@ export class AudioManager {
     this.currentStyle = style;
     const config = STYLE_CONFIG[style];
 
+    // Switch drum kit
+    this.drumSampler.setStyle(style);
+
     Tone.Transport.bpm.value = config.bpm;
     Tone.Transport.swing = config.swing;
     Tone.Transport.swingSubdivision = '8n';
 
-    this.reverb.decay = config.reverbDecay;
-    this.delay.delayTime.value = config.delayTime;
-    this.delay.feedback.value = config.delayFeedback;
-    this.filter.frequency.value = config.filterFreq;
-
     switch (style) {
       case 'Groove':
+        // Dry, punchy, tight — funk/electronic
+        this.reverb.decay = 0.6;
+        this.reverb.wet.value = 0.08;
+        this.delay.delayTime.value = 0.125;
+        this.delay.feedback.value = 0.1;
+        this.delay.wet.value = 0.08;
+        this.filter.frequency.value = 4000;
+        this.chorus.set({ wet: 0.1 });
+        this.phaser.set({ wet: 0.08 });
+        this.drumReverb.wet.value = 0.03;
+        this.bassChannel.volume.value = -2;
+        this.chordChannel.volume.value = -10;
+        this.leadChannel.volume.value = -8;
+        this.padChannel.volume.value = -16;
         this.bass.set({
           oscillator: { type: 'fmsquare', modulationType: 'sine' },
-          envelope: { attack: 0.005, decay: 0.12, sustain: 0.2, release: 0.25 },
-          filterEnvelope: { baseFrequency: 350, octaves: 3.5, attack: 0.008, decay: 0.12 },
+          envelope: { attack: 0.003, decay: 0.1, sustain: 0.15, release: 0.2 },
+          filterEnvelope: { baseFrequency: 400, octaves: 3.5, attack: 0.005, decay: 0.1 },
         });
         this.chords.set({
           oscillator: { type: 'sawtooth' },
-          envelope: { attack: 0.005, decay: 0.08, sustain: 0.1, release: 0.1 },
+          envelope: { attack: 0.003, decay: 0.06, sustain: 0.05, release: 0.08 },
+          detune: 5,
         });
-        this.pad.set({ envelope: { attack: 1, sustain: 0.5, release: 2 } });
-        this.lead.set({ harmonicity: 3.5, modulationIndex: 10 });
-        this.chorus.set({ wet: 0.15 });
-        this.phaser.set({ wet: 0.12 });
+        this.lead.set({ harmonicity: 4, modulationIndex: 12 });
+        this.pad.set({ envelope: { attack: 0.8, sustain: 0.4, release: 1.5 } });
         break;
 
       case 'Lounge':
+        // Warm, spacious, jazzy — lots of reverb, soft everything
+        this.reverb.decay = 3.0;
+        this.reverb.wet.value = 0.4;
+        this.delay.delayTime.value = 0.35;
+        this.delay.feedback.value = 0.2;
+        this.delay.wet.value = 0.18;
+        this.filter.frequency.value = 1800;
+        this.chorus.set({ wet: 0.3 });
+        this.phaser.set({ wet: 0.05 });
+        this.drumReverb.wet.value = 0.2;
+        this.bassChannel.volume.value = -5;
+        this.chordChannel.volume.value = -8;
+        this.leadChannel.volume.value = -10;
+        this.padChannel.volume.value = -10;
         this.bass.set({
           oscillator: { type: 'sine' },
-          envelope: { attack: 0.06, decay: 0.4, sustain: 0.3, release: 0.7 },
-          filterEnvelope: { baseFrequency: 200, octaves: 2, attack: 0.08 },
+          envelope: { attack: 0.05, decay: 0.5, sustain: 0.25, release: 0.8 },
+          filterEnvelope: { baseFrequency: 180, octaves: 1.5, attack: 0.08 },
         });
         this.chords.set({
           oscillator: { type: 'sine' },
-          envelope: { attack: 0.12, decay: 0.4, sustain: 0.5, release: 1 },
+          envelope: { attack: 0.1, decay: 0.5, sustain: 0.5, release: 1.2 },
+          detune: 12,
         });
-        this.pad.set({ envelope: { attack: 2, sustain: 0.7, release: 3 } });
-        this.lead.set({ harmonicity: 2, modulationIndex: 3 });
-        this.chorus.set({ wet: 0.3 });
-        this.phaser.set({ wet: 0.08 });
+        this.lead.set({ harmonicity: 1.5, modulationIndex: 2 });
+        this.pad.set({ envelope: { attack: 2.5, sustain: 0.7, release: 4 } });
         break;
 
       case 'Upbeat':
+        // Bright, driving, energetic — compressed, forward
+        this.reverb.decay = 1.5;
+        this.reverb.wet.value = 0.15;
+        this.delay.delayTime.value = 0.25;
+        this.delay.feedback.value = 0.25;
+        this.delay.wet.value = 0.15;
+        this.filter.frequency.value = 5000;
+        this.chorus.set({ wet: 0.3 });
+        this.phaser.set({ wet: 0.18 });
+        this.drumReverb.wet.value = 0.08;
+        this.bassChannel.volume.value = -3;
+        this.chordChannel.volume.value = -7;
+        this.leadChannel.volume.value = -6;
+        this.padChannel.volume.value = -14;
         this.bass.set({
           oscillator: { type: 'fmsawtooth', modulationType: 'sine' },
-          envelope: { attack: 0.008, decay: 0.2, sustain: 0.45, release: 0.4 },
-          filterEnvelope: { baseFrequency: 300, octaves: 2.8, attack: 0.008 },
+          envelope: { attack: 0.005, decay: 0.18, sustain: 0.4, release: 0.35 },
+          filterEnvelope: { baseFrequency: 350, octaves: 3, attack: 0.005 },
         });
         this.chords.set({
           oscillator: { type: 'sawtooth' },
-          envelope: { attack: 0.02, decay: 0.25, sustain: 0.35, release: 0.5 },
+          envelope: { attack: 0.015, decay: 0.2, sustain: 0.3, release: 0.4 },
+          detune: 15,
         });
-        this.pad.set({ envelope: { attack: 1.2, sustain: 0.6, release: 2 } });
-        this.lead.set({ harmonicity: 3, modulationIndex: 7 });
-        this.chorus.set({ wet: 0.35 });
-        this.phaser.set({ wet: 0.2 });
+        this.lead.set({ harmonicity: 3, modulationIndex: 8 });
+        this.pad.set({ envelope: { attack: 1, sustain: 0.5, release: 2 } });
         break;
 
       case 'Chill':
+        // Warm, mellow, lo-fi — filtered, soft attack
+        this.reverb.decay = 2.2;
+        this.reverb.wet.value = 0.3;
+        this.delay.delayTime.value = 0.2;
+        this.delay.feedback.value = 0.15;
+        this.delay.wet.value = 0.12;
+        this.filter.frequency.value = 2200;
+        this.chorus.set({ wet: 0.2 });
+        this.phaser.set({ wet: 0.08 });
+        this.drumReverb.wet.value = 0.12;
+        this.bassChannel.volume.value = -4;
+        this.chordChannel.volume.value = -9;
+        this.leadChannel.volume.value = -9;
+        this.padChannel.volume.value = -11;
         this.bass.set({
           oscillator: { type: 'triangle' },
-          envelope: { attack: 0.03, decay: 0.3, sustain: 0.2, release: 0.5 },
-          filterEnvelope: { baseFrequency: 220, octaves: 2, attack: 0.04 },
+          envelope: { attack: 0.03, decay: 0.35, sustain: 0.2, release: 0.5 },
+          filterEnvelope: { baseFrequency: 200, octaves: 2, attack: 0.04 },
         });
         this.chords.set({
           oscillator: { type: 'triangle' },
-          envelope: { attack: 0.03, decay: 0.35, sustain: 0.3, release: 0.8 },
+          envelope: { attack: 0.04, decay: 0.4, sustain: 0.35, release: 1 },
+          detune: 8,
         });
-        this.pad.set({ envelope: { attack: 1.8, sustain: 0.6, release: 2.5 } });
-        this.lead.set({ harmonicity: 1.5, modulationIndex: 3 });
-        this.chorus.set({ wet: 0.25 });
-        this.phaser.set({ wet: 0.12 });
+        this.lead.set({ harmonicity: 1.5, modulationIndex: 2.5 });
+        this.pad.set({ envelope: { attack: 2, sustain: 0.6, release: 3 } });
         break;
 
       case 'Dreamy':
+        // Ethereal, vast, ambient — massive reverb, slow everything
+        this.reverb.decay = 6;
+        this.reverb.wet.value = 0.6;
+        this.delay.delayTime.value = 0.5;
+        this.delay.feedback.value = 0.45;
+        this.delay.wet.value = 0.3;
+        this.filter.frequency.value = 1200;
+        this.chorus.set({ wet: 0.5 });
+        this.phaser.set({ wet: 0.3 });
+        this.drumReverb.wet.value = 0.35;
+        this.bassChannel.volume.value = -8;
+        this.chordChannel.volume.value = -10;
+        this.leadChannel.volume.value = -12;
+        this.padChannel.volume.value = -6;
         this.bass.set({
           oscillator: { type: 'sine' },
-          envelope: { attack: 0.8, decay: 1.5, sustain: 0.5, release: 3 },
-          filterEnvelope: { baseFrequency: 100, octaves: 1.5, attack: 0.4 },
+          envelope: { attack: 0.5, decay: 1.5, sustain: 0.4, release: 3 },
+          filterEnvelope: { baseFrequency: 80, octaves: 1, attack: 0.3 },
         });
         this.chords.set({
           oscillator: { type: 'sine' },
-          envelope: { attack: 1.5, decay: 1, sustain: 0.7, release: 2.5 },
+          envelope: { attack: 1.5, decay: 1, sustain: 0.7, release: 3 },
+          detune: 20,
         });
-        this.pad.set({ envelope: { attack: 3, sustain: 0.85, release: 5 } });
-        this.lead.set({ harmonicity: 1, modulationIndex: 2 });
-        this.chorus.set({ wet: 0.45 });
-        this.phaser.set({ wet: 0.25 });
+        this.lead.set({ harmonicity: 1, modulationIndex: 1.5 });
+        this.pad.set({ envelope: { attack: 4, sustain: 0.9, release: 6 } });
         break;
     }
 
