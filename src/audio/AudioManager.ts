@@ -415,12 +415,14 @@ export class AudioManager {
   }
 
   private updateEffectsFromPhotos(avgHue: number, avgBrightness: number) {
-    const filterFreq = 800 + (avgHue / 360) * 2500;
-    this.filter.frequency.rampTo(filterFreq, 0.5);
-    const reverbWet = 0.2 + (avgBrightness / 255) * 0.4;
-    this.reverb.wet.rampTo(reverbWet, 0.5);
-    const delayFeedback = 0.15 + (avgBrightness / 255) * 0.3;
-    this.delay.feedback.rampTo(delayFeedback, 0.5);
+    const config = STYLE_CONFIG[this.currentStyle];
+    // Modulate relative to style base, not override
+    const hueOffset = (avgHue / 360 - 0.5) * 800;
+    this.filter.frequency.rampTo(config.filterFreq + hueOffset, 0.5);
+    const brightFactor = avgBrightness / 255;
+    const baseWet = this.reverb.wet.value;
+    this.reverb.wet.rampTo(baseWet + brightFactor * 0.08, 0.5);
+    this.delay.feedback.rampTo(config.delayFeedback + brightFactor * 0.05, 0.5);
   }
 
   private playPad(stepIndex: number, time: number, dynamicFactor: number) {
@@ -428,7 +430,8 @@ export class AudioManager {
     const chords = CHORD_PROGRESSIONS[this.currentStyle];
     if (!chords) return;
     const currentChord = chords[this.chordProgressionIndex];
-    const velocity = this.humanizeVelocity(0.2 * dynamicFactor);
+    const baseVel = this.photos.length <= 2 ? 0.35 : 0.2;
+    const velocity = this.humanizeVelocity(baseVel * dynamicFactor);
     this.pad.triggerAttackRelease(currentChord, '1n', time + this.humanizeTime(), velocity);
   }
 
@@ -441,19 +444,41 @@ export class AudioManager {
     const t = time + this.humanizeTime();
 
     if (photoCount === 1) {
-      if (stepIndex % 4 === 0) {
-        this.drumSampler.trigger('hihatClosed', t, this.humanizeVelocity(0.12 * dynamicFactor));
+      switch (this.currentStyle) {
+        case 'Groove':
+          if (stepIndex === 0 || stepIndex === 8) this.drumSampler.trigger('kick', t, this.humanizeVelocity(0.5 * dynamicFactor));
+          if (stepIndex % 2 === 0) this.drumSampler.trigger('hihat', t, this.humanizeVelocity(0.15 * dynamicFactor));
+          if (stepIndex === 4 || stepIndex === 12) this.drumSampler.trigger('rim', t, this.humanizeVelocity(0.2 * dynamicFactor));
+          break;
+        case 'Lounge':
+          if (stepIndex === 0) this.drumSampler.trigger('kick', t, this.humanizeVelocity(0.3 * dynamicFactor));
+          if (stepIndex % 6 === 0) this.drumSampler.trigger('hihat', t, this.humanizeVelocity(0.2 * dynamicFactor));
+          if (stepIndex === 10) this.drumSampler.trigger('rim', t, this.humanizeVelocity(0.15 * dynamicFactor));
+          break;
+        case 'Upbeat':
+          if (stepIndex % 4 === 0) this.drumSampler.trigger('kick', t, this.humanizeVelocity(0.55 * dynamicFactor));
+          if (stepIndex % 2 === 0) this.drumSampler.trigger('hihat', t, this.humanizeVelocity(0.2 * dynamicFactor));
+          break;
+        case 'Chill':
+          if (stepIndex === 0 || stepIndex === 6) this.drumSampler.trigger('kick', t, this.humanizeVelocity(0.35 * dynamicFactor));
+          if (stepIndex % 4 === 0) this.drumSampler.trigger('hihat', t, this.humanizeVelocity(0.12 * dynamicFactor));
+          break;
+        case 'Dreamy':
+          if (stepIndex === 0 && this.currentBar % 2 === 0) this.drumSampler.trigger('hihat', t, this.humanizeVelocity(0.1 * dynamicFactor));
+          break;
       }
       return;
     }
 
     if (photoCount === 2) {
-      if (stepIndex === 0 || stepIndex === 8) {
-        this.drumSampler.trigger('kick', t, this.humanizeVelocity(0.4 * dynamicFactor));
+      if (pattern.kick.length > 0) {
+        if (stepIndex === 0 || stepIndex === 8) this.drumSampler.trigger('kick', t, this.humanizeVelocity(0.45 * dynamicFactor));
       }
-      if (stepIndex % 4 === 0) {
-        this.drumSampler.trigger('hihatClosed', t, this.humanizeVelocity(0.18 * dynamicFactor));
-      }
+      if (stepIndex % 4 === 0) this.drumSampler.trigger('hihat', t, this.humanizeVelocity(0.2 * dynamicFactor));
+      if (this.currentStyle === 'Groove' && (stepIndex === 4 || stepIndex === 12))
+        this.drumSampler.trigger('rim', t, this.humanizeVelocity(0.25 * dynamicFactor));
+      if (this.currentStyle === 'Lounge' && stepIndex === 10)
+        this.drumSampler.trigger('rim', t, this.humanizeVelocity(0.15 * dynamicFactor));
       return;
     }
 
