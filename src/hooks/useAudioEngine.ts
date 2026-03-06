@@ -1,9 +1,10 @@
 import { useEffect, useRef } from 'react';
 import { useMixerStore } from '../store/useMixerStore';
 import { AudioManager } from '../audio/AudioManager';
+import { STYLE_CONFIG } from '../audio/patterns';
 
 export const useAudioEngine = () => {
-  const { activeStyle, isPlaying, masterVolume, bpm, photos } = useMixerStore();
+  const { activeStyle, isPlaying, masterVolume, bpm, photos, setBpm } = useMixerStore();
   const audioManagerRef = useRef<AudioManager | null>(null);
 
   // Lazy Initialization
@@ -33,12 +34,16 @@ export const useAudioEngine = () => {
     handlePlay();
   }, [isPlaying]);
 
-  // Sync Style
+  // Sync Style — also update store BPM to match the style's default
   useEffect(() => {
     const manager = audioManagerRef.current;
     if (!manager) return;
     manager.updateStyle(activeStyle);
-  }, [activeStyle]);
+    const config = STYLE_CONFIG[activeStyle];
+    if (config) {
+      setBpm(config.bpm);
+    }
+  }, [activeStyle, setBpm]);
 
   // Sync Volume
   useEffect(() => {
