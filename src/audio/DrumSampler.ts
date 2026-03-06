@@ -17,7 +17,9 @@ export class DrumSampler {
 
   async generate() {
     const styles: StyleName[] = ['Groove', 'Lounge', 'Upbeat', 'Chill', 'Dreamy'];
-    await Promise.all(styles.map((s) => this.generateKit(s)));
+    for (const s of styles) {
+      await this.generateKit(s);
+    }
     this.isLoaded = true;
   }
 

@@ -1,4 +1,5 @@
 import * as Tone from 'tone';
+import { getContext, setContext } from 'tone';
 import type { MusicStyle } from '../store/useMixerStore';
 import { LoopEngine } from './LoopEngine';
 import { DrumSampler } from './DrumSampler';
@@ -129,10 +130,15 @@ export class AudioManager {
     if (this.isInitialized) return;
     await Tone.start();
 
-    // Sequential: Tone.Offline swaps the global context, so we must
-    // finish one batch of offline renders before starting the next.
+    // Tone.Offline temporarily replaces the global audio context.
+    // Save a reference so we can force-restore it after all rendering.
+    const mainContext = getContext();
+
     await this.loopEngine.generateAll();
     await this.drumSampler.generate();
+
+    // Belt-and-suspenders: guarantee we're back on the live context
+    setContext(mainContext);
 
     this.isInitialized = true;
     console.log('Audio Engine Initialized (Loop + Sample hybrid)');
