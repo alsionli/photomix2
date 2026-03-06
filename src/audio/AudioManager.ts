@@ -129,11 +129,10 @@ export class AudioManager {
     if (this.isInitialized) return;
     await Tone.start();
 
-    // Generate all loops and samples in parallel
-    await Promise.all([
-      this.loopEngine.generateAll(),
-      this.drumSampler.generate(),
-    ]);
+    // Sequential: Tone.Offline swaps the global context, so we must
+    // finish one batch of offline renders before starting the next.
+    await this.loopEngine.generateAll();
+    await this.drumSampler.generate();
 
     this.isInitialized = true;
     console.log('Audio Engine Initialized (Loop + Sample hybrid)');

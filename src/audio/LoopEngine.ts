@@ -91,11 +91,11 @@ export class LoopEngine {
       const bars = 4;
       const duration = bars * 4 * (60 / bpm);
 
-      const [rhythmA, rhythmB, atmosphere] = await Promise.all([
-        this.renderRhythm(style, 'A', sixteenth, bars, duration),
-        this.renderRhythm(style, 'B', sixteenth, bars, duration),
-        this.renderAtmosphere(style, sixteenth, bars, duration),
-      ]);
+      // Sequential rendering: Tone.Offline temporarily swaps the global audio
+      // context, so parallel calls via Promise.all corrupt the context chain.
+      const rhythmA = await this.renderRhythm(style, 'A', sixteenth, bars, duration);
+      const rhythmB = await this.renderRhythm(style, 'B', sixteenth, bars, duration);
+      const atmosphere = await this.renderAtmosphere(style, sixteenth, bars, duration);
 
       this.loops.set(style, { rhythmA, rhythmB, atmosphere, bpm, duration });
     }
@@ -110,6 +110,7 @@ export class LoopEngine {
 
   updateFromPhotos(photos: { hue: number; brightness: number }[]) {
     this.photoCount = photos.length;
+    if (!this.isLoaded) return;
     if (photos.length === 0) {
       this.stopAll();
       return;
