@@ -166,9 +166,10 @@ export class LoopEngine {
   // ── Player Management ──
 
   private restartAll() {
+    this.stopAll();
+    if (this.photoCount >= 1) this.startAtmosphere();
     if (this.photoCount >= 2) this.startRhythm();
     if (this.photoCount >= 3) this.startMelody();
-    if (this.photoCount >= 1) this.startAtmosphere();
   }
 
   private startRhythm() {
@@ -500,85 +501,143 @@ export class LoopEngine {
     }
   }
 
+  // Groove: Rhythmic stab chords + subtle pad, funky pulse
   private grooveAtmo(s: number, bars: number, dur: number) {
     return Tone.Offline(() => {
-      const verb = new Tone.Reverb(1.5).toDestination(); verb.wet.value = 0.3;
-      const pad = new Tone.PolySynth(Tone.Synth, { oscillator: { type: 'triangle' }, envelope: { attack: 0.5, decay: 0.5, sustain: 0.6, release: 1.5 } }).connect(verb);
-      pad.volume.value = -8;
-      const chordProg: NoteEvent[][] = [
-        [[0,'E3','1n',.4],[0,'G#3','1n',.35],[0,'B3','1n',.35],[0,'D4','1n',.3]],
-        [[0,'A3','1n',.4],[0,'C#4','1n',.35],[0,'E4','1n',.35],[0,'G4','1n',.3]],
-      ];
-      for (let bar = 0; bar < bars; bar++) {
-        const chord = chordProg[bar % chordProg.length];
-        chord.forEach(([, note, d, vel]) => pad.triggerAttackRelease(note, d, bar * 16 * s, vel as number));
-      }
-    }, dur);
-  }
+      const verb = new Tone.Reverb(1).toDestination(); verb.wet.value = 0.2;
+      const delay = new Tone.FeedbackDelay('8n', 0.12).connect(verb); delay.wet.value = 0.08;
 
-  private loungeAtmo(s: number, bars: number, dur: number) {
-    return Tone.Offline(() => {
-      const verb = new Tone.Reverb(3).toDestination(); verb.wet.value = 0.45;
-      const chorus = new Tone.Chorus({ frequency: 0.8, delayTime: 5, depth: 0.5, wet: 0.3 }).connect(verb);
-      chorus.start();
-      const pad = new Tone.PolySynth(Tone.Synth, { oscillator: { type: 'sine' }, envelope: { attack: 1.5, decay: 1, sustain: 0.7, release: 3 } }).connect(chorus);
-      pad.volume.value = -6;
-      const chords = [
-        ['D3','F3','A3','C4'],
-        ['G3','B3','D4','F4'],
-        ['C3','E3','G3','B3'],
-        ['C3','E3','G3','B3'],
-      ];
+      // Sustained pad underneath
+      const pad = new Tone.PolySynth(Tone.Synth, { oscillator: { type: 'triangle' }, envelope: { attack: 0.8, decay: 0.5, sustain: 0.5, release: 1.5 } }).connect(verb);
+      pad.volume.value = -12;
+
+      // Rhythmic stab synth — the main groove character
+      const stab = new Tone.PolySynth(Tone.Synth, { oscillator: { type: 'sawtooth' }, envelope: { attack: 0.005, decay: 0.08, sustain: 0.02, release: 0.06 } }).connect(delay);
+      stab.volume.value = -6;
+
+      const chords = [['E3','G#3','B3','D4'],['A3','C#4','E4','G4']];
+      // Stab pattern: offbeat funk scratches
+      const stabSteps = [2, 5, 7, 10, 13, 15];
       for (let bar = 0; bar < bars; bar++) {
         const ch = chords[bar % chords.length];
-        ch.forEach(n => pad.triggerAttackRelease(n, '1n', bar * 16 * s, 0.35));
+        // Sustained pad per bar
+        ch.forEach(n => pad.triggerAttackRelease(n, '1n', bar * 16 * s, 0.3));
+        // Stab hits on offbeats
+        stabSteps.forEach(step => {
+          const vel = step % 4 === 2 ? 0.55 : 0.35;
+          ch.forEach(n => stab.triggerAttackRelease(n, '32n', (bar * 16 + step) * s, vel * (0.85 + Math.random() * 0.3)));
+        });
       }
     }, dur);
   }
 
+  // Lounge: Rhodes-like comping with gentle swing feel
+  private loungeAtmo(s: number, bars: number, dur: number) {
+    return Tone.Offline(() => {
+      const verb = new Tone.Reverb(2.5).toDestination(); verb.wet.value = 0.35;
+      const chorus = new Tone.Chorus({ frequency: 1.2, delayTime: 4, depth: 0.3, wet: 0.2 }).connect(verb);
+      chorus.start();
+
+      // Warm sustained pad
+      const pad = new Tone.PolySynth(Tone.Synth, { oscillator: { type: 'sine' }, envelope: { attack: 1.5, decay: 1, sustain: 0.6, release: 2.5 } }).connect(verb);
+      pad.volume.value = -10;
+
+      // Rhodes-like comping hits
+      const keys = new Tone.PolySynth(Tone.Synth, { oscillator: { type: 'sine' }, envelope: { attack: 0.01, decay: 0.4, sustain: 0.15, release: 0.5 } }).connect(chorus);
+      keys.volume.value = -5;
+
+      const chords = [['D3','F3','A3','C4'],['G3','B3','D4','F4'],['C3','E3','G3','B3'],['C3','E3','G3','B3']];
+      // Syncopated comping: irregular hits like a jazz pianist
+      const compSteps = [[0, .5], [6, .35], [10, .4], [14, .3]];
+      for (let bar = 0; bar < bars; bar++) {
+        const ch = chords[bar % chords.length];
+        ch.forEach(n => pad.triggerAttackRelease(n, '1n', bar * 16 * s, 0.25));
+        compSteps.forEach(([step, vel]) => {
+          ch.forEach(n => keys.triggerAttackRelease(n, '8n', (bar * 16 + step) * s, (vel as number) * (0.9 + Math.random() * 0.2)));
+        });
+      }
+    }, dur);
+  }
+
+  // Upbeat: Pulsing synth pad with rhythmic sidechain feel
   private upbeatAtmo(s: number, bars: number, dur: number) {
     return Tone.Offline(() => {
       const verb = new Tone.Reverb(1.5).toDestination(); verb.wet.value = 0.2;
-      const delay = new Tone.FeedbackDelay('8n', 0.2).connect(verb); delay.wet.value = 0.15;
-      const pad = new Tone.PolySynth(Tone.Synth, { oscillator: { type: 'sawtooth' }, envelope: { attack: 0.8, decay: 0.5, sustain: 0.5, release: 1.5 } }).connect(delay);
-      pad.volume.value = -10;
-      pad.set({ detune: 10 });
+      const delay = new Tone.FeedbackDelay('8n', 0.18).connect(verb); delay.wet.value = 0.12;
+
+      // Pulsing pad stabs on 8th notes with varying volume for sidechain feel
+      const pad = new Tone.PolySynth(Tone.Synth, { oscillator: { type: 'sawtooth' }, envelope: { attack: 0.02, decay: 0.2, sustain: 0.15, release: 0.25 } }).connect(delay);
+      pad.volume.value = -8;
+      pad.set({ detune: 8 });
+
       const chords = [['E3','G3','B3'],['G3','B3','D4'],['D3','F#3','A3'],['A3','C#4','E4']];
+      // Pumping 8th notes: downbeats louder (faux sidechain)
       for (let bar = 0; bar < bars; bar++) {
         const ch = chords[bar % chords.length];
-        ch.forEach(n => pad.triggerAttackRelease(n, '1n', bar * 16 * s, 0.3));
+        for (let step = 0; step < 16; step += 2) {
+          const isDown = step % 4 === 0;
+          const vel = isDown ? 0.15 : 0.35;
+          ch.forEach(n => pad.triggerAttackRelease(n, '16n', (bar * 16 + step) * s, vel * (0.9 + Math.random() * 0.2)));
+        }
       }
     }, dur);
   }
 
+  // Chill: Lo-fi keys with lazy rhythmic comping + warm pad
   private chillAtmo(s: number, bars: number, dur: number) {
     return Tone.Offline(() => {
       const lpf = new Tone.Filter(3000, 'lowpass').toDestination();
-      const verb = new Tone.Reverb(2.5).connect(lpf); verb.wet.value = 0.35;
-      const chorus = new Tone.Chorus({ frequency: 0.5, delayTime: 4, depth: 0.4, wet: 0.25 }).connect(verb);
+      const verb = new Tone.Reverb(2).connect(lpf); verb.wet.value = 0.3;
+      const chorus = new Tone.Chorus({ frequency: 0.5, delayTime: 4, depth: 0.4, wet: 0.2 }).connect(verb);
       chorus.start();
-      const pad = new Tone.PolySynth(Tone.Synth, { oscillator: { type: 'triangle' }, envelope: { attack: 2, decay: 1, sustain: 0.7, release: 3 } }).connect(chorus);
-      pad.volume.value = -5;
+
+      // Warm pad
+      const pad = new Tone.PolySynth(Tone.Synth, { oscillator: { type: 'triangle' }, envelope: { attack: 2, decay: 1, sustain: 0.6, release: 2.5 } }).connect(chorus);
+      pad.volume.value = -8;
+
+      // Gentle rhythmic keys
+      const keys = new Tone.PolySynth(Tone.Synth, { oscillator: { type: 'triangle' }, envelope: { attack: 0.03, decay: 0.35, sustain: 0.1, release: 0.4 } }).connect(verb);
+      keys.volume.value = -6;
+
       const chords = [['C3','E3','G3','B3'],['A3','C4','E4','G4'],['D3','F3','A3','C4'],['G3','B3','D4','F4']];
+      // Lazy bossa-style comping
+      const compPattern = [[0, .5], [3, .3], [6, .4], [10, .35], [14, .3]];
       for (let bar = 0; bar < bars; bar++) {
         const ch = chords[bar % chords.length];
-        ch.forEach(n => pad.triggerAttackRelease(n, '1n', bar * 16 * s, 0.35));
+        ch.forEach(n => pad.triggerAttackRelease(n, '1n', bar * 16 * s, 0.3));
+        compPattern.forEach(([step, vel]) => {
+          ch.forEach(n => keys.triggerAttackRelease(n, '8n', (bar * 16 + step) * s, (vel as number) * (0.85 + Math.random() * 0.3)));
+        });
       }
     }, dur);
   }
 
+  // Dreamy: Slow evolving arp + lush reverb pad
   private dreamyAtmo(s: number, bars: number, dur: number) {
     return Tone.Offline(() => {
-      const verb = new Tone.Reverb(6).toDestination(); verb.wet.value = 0.7;
-      const delay = new Tone.FeedbackDelay('4n', 0.4).connect(verb); delay.wet.value = 0.3;
+      const verb = new Tone.Reverb(6).toDestination(); verb.wet.value = 0.65;
+      const delay = new Tone.FeedbackDelay('4n', 0.35).connect(verb); delay.wet.value = 0.25;
       const chorus = new Tone.Chorus({ frequency: 0.3, delayTime: 6, depth: 0.7, wet: 0.4 }).connect(delay);
       chorus.start();
-      const pad = new Tone.PolySynth(Tone.Synth, { oscillator: { type: 'sine' }, envelope: { attack: 3, decay: 2, sustain: 0.85, release: 5 } }).connect(chorus);
-      pad.volume.value = -3;
+
+      // Deep pad
+      const pad = new Tone.PolySynth(Tone.Synth, { oscillator: { type: 'sine' }, envelope: { attack: 3, decay: 2, sustain: 0.8, release: 4 } }).connect(chorus);
+      pad.volume.value = -6;
+
+      // Slow arp that floats over the pad
+      const arp = new Tone.Synth({ oscillator: { type: 'sine' }, envelope: { attack: 0.15, decay: 0.5, sustain: 0.3, release: 1.5 } }).connect(delay);
+      arp.volume.value = -8;
+
       const chords = [['C3','G3','C4','E4'],['G3','D4','G4','B4'],['A3','E4','A4','C5'],['F3','C4','F4','A4']];
+      const arpNotes = ['E4','G4','C5','G4','A4','E5','A4','F4','C5','A4','F4','C4'];
       for (let bar = 0; bar < bars; bar++) {
         const ch = chords[bar % chords.length];
-        ch.forEach(n => pad.triggerAttackRelease(n, '1n', bar * 16 * s, 0.3));
+        ch.forEach(n => pad.triggerAttackRelease(n, '1n', bar * 16 * s, 0.25));
+        // One arp note per beat (quarter notes)
+        for (let beat = 0; beat < 4; beat++) {
+          const idx = (bar * 4 + beat) % arpNotes.length;
+          arp.triggerAttackRelease(arpNotes[idx], '4n', (bar * 16 + beat * 4) * s, 0.25 + Math.random() * 0.08);
+        }
       }
     }, dur);
   }
