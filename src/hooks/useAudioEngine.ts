@@ -59,10 +59,19 @@ export const useAudioEngine = () => {
     manager.setBpm(bpm);
   }, [bpm]);
 
-  // Sync Photos
+  // Sync Photos — auto-play when first photo is added
+  const prevPhotoCount = useRef(0);
   useEffect(() => {
     const manager = audioManagerRef.current;
     if (!manager) return;
     manager.setPhotos(photos);
-  }, [photos]);
+
+    if (photos.length > 0 && prevPhotoCount.current === 0 && !isPlaying) {
+      useMixerStore.getState().togglePlay();
+    }
+    if (photos.length === 0 && prevPhotoCount.current > 0 && isPlaying) {
+      useMixerStore.getState().togglePlay();
+    }
+    prevPhotoCount.current = photos.length;
+  }, [photos, isPlaying]);
 };
