@@ -144,14 +144,18 @@ export class AudioManager {
 
   public async initialize() {
     if (this.isInitialized) return;
-    await Tone.start();
 
-    // Wait for buffers if still generating
+    // Buffers MUST finish first — Tone.Offline swaps the global audio context,
+    // so calling Tone.start() while offline renders are in-flight would resume
+    // the wrong (offline) context, leaving the real one suspended = silence.
     if (this.bufferReady) {
       await this.bufferReady;
     } else {
       await this.generateBuffers();
     }
+
+    // Now safe to start the real audio context (user gesture still valid)
+    await Tone.start();
 
     this.isInitialized = true;
     console.log('Audio Engine Initialized');
