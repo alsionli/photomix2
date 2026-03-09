@@ -126,23 +126,41 @@ export class AudioManager {
     return AudioManager.instance;
   }
 
+  private bufferReady: Promise<void> | null = null;
+
+  /** Pre-generate all offline buffers (no user gesture needed). */
+  public warmUp() {
+    if (this.bufferReady) return;
+    this.bufferReady = this.generateBuffers();
+  }
+
+  private async generateBuffers() {
+    const mainContext = getContext();
+    await this.loopEngine.generateAll();
+    await this.drumSampler.generate();
+    setContext(mainContext);
+    console.log('Audio buffers pre-generated');
+  }
+
   public async initialize() {
     if (this.isInitialized) return;
     await Tone.start();
 
-    // Tone.Offline temporarily replaces the global audio context.
-    // Save a reference so we can force-restore it after all rendering.
-    const mainContext = getContext();
-
-    await this.loopEngine.generateAll();
-    await this.drumSampler.generate();
-
-    // Belt-and-suspenders: guarantee we're back on the live context
-    setContext(mainContext);
+    // Wait for buffers if still generating
+    if (this.bufferReady) {
+      await this.bufferReady;
+    } else {
+      await this.generateBuffers();
+    }
 
     this.isInitialized = true;
-    console.log('Audio Engine Initialized (Loop + Sample hybrid)');
+    console.log('Audio Engine Initialized');
     this.loop?.start(0);
+
+    this.updateStyle(this.currentStyle);
+    if (this.photos.length > 0) {
+      this.loopEngine.updateFromPhotos(this.photos);
+    }
   }
 
   public setVolume(db: number) {
@@ -151,6 +169,7 @@ export class AudioManager {
 
   public setBpm(bpm: number) {
     Tone.Transport.bpm.rampTo(bpm, 1);
+    this.loopEngine.setBpm(bpm);
   }
 
   public togglePlay(isPlaying: boolean) {

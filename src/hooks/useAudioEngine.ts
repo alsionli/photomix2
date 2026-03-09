@@ -7,11 +7,12 @@ export const useAudioEngine = () => {
   const { activeStyle, isPlaying, masterVolume, bpm, photos, setBpm } = useMixerStore();
   const audioManagerRef = useRef<AudioManager | null>(null);
 
-  // Lazy Initialization
+  // Eager buffer generation on mount (no user gesture needed)
   useEffect(() => {
     if (!audioManagerRef.current) {
         try {
             audioManagerRef.current = AudioManager.getInstance();
+            audioManagerRef.current.warmUp();
         } catch (e) {
             console.error("Failed to initialize Audio Engine:", e);
         }
