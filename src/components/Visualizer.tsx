@@ -29,12 +29,12 @@ export const Visualizer: React.FC = () => {
       ctx.beginPath();
 
       if (!audioManager || !audioManager.isInitialized) {
-         // Animated idle sine wave
-         const t = performance.now() / 800;
+         // Gentle idle breathing wave
+         const t = performance.now() / 2000;
          const points = 80;
          for (let i = 0; i <= points; i++) {
            const px = (i / points) * w;
-           const wave = Math.sin((i / points) * Math.PI * 4 + t) * 0.35;
+           const wave = Math.sin((i / points) * Math.PI * 2 + t) * 0.1;
            const y = mid + wave * mid;
            if (i === 0) ctx.moveTo(px, y);
            else ctx.lineTo(px, y);
