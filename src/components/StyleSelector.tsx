@@ -3,7 +3,7 @@ import { useMixerStore } from '../store/useMixerStore';
 import type { MusicStyle } from '../store/useMixerStore';
 import { PushBtn } from './PushBtn';
 import { Knob } from './Knob';
-import { Play, Square, Music2 } from 'lucide-react';
+import { Play, Square } from 'lucide-react';
 
 const STYLES: MusicStyle[] = ['Groove', 'Lounge', 'Upbeat', 'Chill', 'Dreamy'];
 
@@ -11,25 +11,32 @@ export const StyleSelector: React.FC = () => {
   const { activeStyle, setStyle, isPlaying, togglePlay, masterVolume, setVolume, bpm, setBpm } = useMixerStore();
 
   return (
-    <div className="w-64 bg-te-panel border-r-2 border-white/20 p-6 flex flex-col gap-8 h-full shadow-inner">
+    <div className="w-64 bg-te-panel flex flex-col h-full relative"
+      style={{
+        boxShadow: `
+          inset -1px 0 0 rgba(255,255,255,0.3),
+          1px 0 0 rgba(0,0,0,0.06)
+        `,
+      }}
+    >
       {/* Transport Controls */}
-      <div className="flex flex-col items-center gap-4 bg-te-dark/5 p-4 rounded-xl border border-te-dark/10">
+      <div className="p-5 flex flex-col items-center gap-5">
         <div className="flex gap-4">
           <PushBtn 
             onClick={togglePlay} 
             variant={isPlaying ? 'orange' : 'default'}
             label={isPlaying ? "STOP" : "PLAY"}
           >
-            {isPlaying ? <Square size={20} /> : <Play size={20} />}
+            {isPlaying ? <Square size={18} /> : <Play size={18} />}
           </PushBtn>
         </div>
         
-        <div className="flex gap-4 w-full justify-between px-2">
+        <div className="flex gap-6 w-full justify-center">
            <Knob 
-            value={masterVolume} 
-            min={-60} 
-            max={0} 
-            onChange={setVolume} 
+            value={Math.round((masterVolume + 60) / 60 * 100)} 
+            min={0} 
+            max={100} 
+            onChange={(v) => setVolume(v / 100 * 60 - 60)} 
             label="VOL" 
           />
           <Knob 
@@ -42,46 +49,48 @@ export const StyleSelector: React.FC = () => {
         </div>
       </div>
 
+      {/* Divider groove */}
+      <div className="mx-4 h-px bg-te-dark/8" style={{ boxShadow: '0 1px 0 rgba(255,255,255,0.4)' }} />
+
       {/* Style Selection */}
-      <div className="flex flex-col gap-3 flex-1">
-        <div className="flex items-center gap-2 mb-2 text-te-dark/60">
-           <Music2 size={16} />
-           <span className="text-xs font-mono font-bold uppercase tracking-wider">TAPE / STYLE</span>
-        </div>
+      <div className="flex flex-col gap-2 flex-1 p-5">
+        <span className="text-[10px] font-mono font-semibold uppercase tracking-[0.15em] text-te-gray mb-1">Style</span>
         
-        <div className="grid grid-cols-1 gap-3">
+        <div className="flex flex-col gap-1.5">
           {STYLES.map((style) => (
             <button
               key={style}
               onClick={() => setStyle(style)}
               className={`
-                text-left px-4 py-3 rounded-lg font-mono text-sm transition-all relative overflow-hidden group
+                text-left px-3 py-2 rounded-md font-mono text-sm transition-all relative overflow-hidden
                 ${activeStyle === style 
-                  ? 'bg-te-orange text-white shadow-md translate-x-1' 
-                  : 'bg-te-bg text-te-dark hover:bg-white hover:shadow-sm'
+                  ? 'bg-te-orange text-white braun-raised' 
+                  : 'bg-te-surface/60 text-te-dark/70 hover:bg-te-surface hover:text-te-dark'
                 }
               `}
             >
               <div className="relative z-10 flex justify-between items-center">
-                <span>{style}</span>
-                {activeStyle === style && <div className="w-2 h-2 bg-white rounded-full animate-pulse" />}
+                <span className="font-medium">{style}</span>
+                {activeStyle === style && <div className="w-1.5 h-1.5 bg-white rounded-full animate-pulse" />}
               </div>
-              
-              {/* Decorative line */}
-              <div className={`absolute bottom-0 left-0 h-0.5 bg-black/10 transition-all duration-300
-                ${activeStyle === style ? 'w-full' : 'w-0 group-hover:w-full'}
-              `} />
             </button>
           ))}
         </div>
       </div>
+
+      {/* Speaker Grid - Braun signature */}
+      <div className="mx-5 mb-4 flex-shrink-0">
+        <div 
+          className="speaker-grid rounded-lg h-20 opacity-20"
+          style={{
+            boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.1), inset 0 -1px 1px rgba(255,255,255,0.2)',
+          }}
+        />
+      </div>
       
-      {/* Decorative Branding */}
-      <div className="mt-auto opacity-40">
-        <div className="flex items-center gap-2 font-mono text-[10px] uppercase text-te-dark">
-          <div className="w-4 h-4 border border-te-dark rounded-sm flex items-center justify-center">K</div>
-          <span>Knifey v1.0</span>
-        </div>
+      {/* Branding */}
+      <div className="px-5 pb-4">
+        <span className="font-mono text-[9px] uppercase tracking-[0.2em] text-te-gray/60 font-semibold">PhotoMix</span>
       </div>
     </div>
   );

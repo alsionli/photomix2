@@ -63,12 +63,12 @@ export const PhotoCard: React.FC<PhotoCardProps> = ({ id, url, x, y, width, heig
       initial={{ scale: 0, opacity: 0 }}
       animate={{ scale: 1, opacity: 1 }}
       whileHover={{ scale: 1.02, zIndex: 10 }}
-      whileDrag={{ scale: 1.05, zIndex: 20, boxShadow: "0px 15px 30px rgba(0,0,0,0.2)" }}
+      whileDrag={{ scale: 1.04, zIndex: 20, boxShadow: "0px 8px 24px rgba(0,0,0,0.15)" }}
       onDragEnd={() => {
         // Sync final position to store
         updatePhotoPosition(id, motionX.get(), motionY.get());
       }}
-      className="absolute bg-white p-1 shadow-lg rounded-sm cursor-grab active:cursor-grabbing group"
+      className="absolute bg-te-surface p-1 cursor-grab active:cursor-grabbing group rounded-md"
       style={{
         x: motionX,
         y: motionY,
@@ -76,13 +76,13 @@ export const PhotoCard: React.FC<PhotoCardProps> = ({ id, url, x, y, width, heig
         height,
       }}
     >
-      <div className="relative w-full h-full overflow-hidden">
+      <div className="relative w-full h-full overflow-hidden rounded-[3px]">
         <img src={url} alt="mix" className="w-full h-full object-cover pointer-events-none" />
         <button 
           onClick={(e) => { e.stopPropagation(); removePhoto(id); }}
-          className="absolute top-1 right-1 bg-black/50 hover:bg-red-500 text-white p-1 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+          className="absolute top-1 right-1 bg-te-dark/60 hover:bg-te-orange text-white p-0.5 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
         >
-          <X size={12} />
+          <X size={10} />
         </button>
       </div>
 

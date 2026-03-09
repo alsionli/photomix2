@@ -11,14 +11,8 @@ export const MixerCanvas: React.FC = () => {
   const containerRef = useRef<HTMLDivElement>(null);
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/968fef06-03d0-4711-8426-0cff26aec431',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'MixerCanvas.tsx:onDrop',message:'onDrop triggered',data:{fileCount:acceptedFiles.length,hasContainerRef:!!containerRef.current},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A'})}).catch(()=>{});
-    // #endregion
     if (!containerRef.current) return;
     const rect = containerRef.current.getBoundingClientRect();
-    // #region agent log
-    fetch('http://127.0.0.1:7242/ingest/968fef06-03d0-4711-8426-0cff26aec431',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'MixerCanvas.tsx:onDrop',message:'Container rect',data:{rectWidth:rect.width,rectHeight:rect.height,rectTop:rect.top,rectLeft:rect.left},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'D'})}).catch(()=>{});
-    // #endregion
 
     // Process files sequentially or parallel
     for (const file of acceptedFiles) {
@@ -51,10 +45,6 @@ export const MixerCanvas: React.FC = () => {
       const offsetY = (existingPhotos % 3) * 30 - 30; // Spread vertically (-30 to +30)
       const x = Math.max(0, Math.min((rect.width - width) / 2 + offsetX, rect.width - width));
       const y = Math.max(0, Math.min((rect.height - height) / 2 + offsetY, rect.height - height));
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/968fef06-03d0-4711-8426-0cff26aec431',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'MixerCanvas.tsx:onDrop',message:'Adding photo',data:{id,x,y,url,width,height,aspectRatio},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'B'})}).catch(()=>{});
-      // #endregion
-
       addPhoto({
         id,
         url, // Note: In prod we might want to handle cleanup
@@ -81,16 +71,7 @@ export const MixerCanvas: React.FC = () => {
 
   const { getRootProps, getInputProps, isDragActive, open } = useDropzone({ 
     onDrop,
-    onDropRejected: (rejectedFiles) => {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/968fef06-03d0-4711-8426-0cff26aec431',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'MixerCanvas.tsx:onDropRejected',message:'Files rejected',data:{rejectedCount:rejectedFiles.length,reasons:rejectedFiles.map(f=>({name:f.file.name,errors:f.errors}))},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'G'})}).catch(()=>{});
-      // #endregion
-    },
-    onDragEnter: () => {
-      // #region agent log
-      fetch('http://127.0.0.1:7242/ingest/968fef06-03d0-4711-8426-0cff26aec431',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'MixerCanvas.tsx:onDragEnter',message:'Drag enter detected',data:{},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'F'})}).catch(()=>{});
-      // #endregion
-    },
+    onDropRejected: () => {},
     accept: { 'image/*': [] },
     noClick: true // Disable click to open file dialog on the whole canvas? Maybe allow it.
   });
@@ -109,10 +90,10 @@ export const MixerCanvas: React.FC = () => {
         }}
         className={cn(
             "w-full h-full relative bg-te-bg transition-colors overflow-hidden",
-            isDragActive && "bg-te-orange/10"
+            isDragActive && "bg-te-orange/5"
         )}
         style={{
-            backgroundImage: 'radial-gradient(circle at center, #888888 1px, transparent 1px)',
+            backgroundImage: 'radial-gradient(circle at center, #C0C0C2 1px, transparent 1px)',
             backgroundSize: '24px 24px',
             backgroundPosition: '0 0'
         }}
@@ -121,26 +102,19 @@ export const MixerCanvas: React.FC = () => {
       
       {/* Empty State */}
       {photos.length === 0 && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center text-te-dark/40 pointer-events-none">
+        <div className="absolute inset-0 flex flex-col items-center justify-center text-te-gray pointer-events-none">
           <button
             type="button"
             onClick={open}
-            className="w-24 h-24 border-2 border-dashed border-current rounded-xl flex items-center justify-center mb-4 hover:text-te-orange hover:border-te-orange transition-colors pointer-events-auto"
+            className="w-20 h-20 rounded-2xl flex items-center justify-center mb-4 hover:text-te-orange hover:border-te-orange/40 transition-colors pointer-events-auto bg-te-bg border-2 border-dashed border-te-gray/30"
             aria-label="Upload photos"
           >
-             <Upload size={32} />
+             <Upload size={28} strokeWidth={1.5} />
           </button>
-          <p className="font-mono text-sm uppercase tracking-widest">Drop Photos to Mix</p>
+          <p className="font-mono text-xs tracking-wide text-te-gray/80">Drop photos to mix</p>
         </div>
       )}
 
-      {/* Photos */}
-      {(() => {
-        // #region agent log
-        fetch('http://127.0.0.1:7242/ingest/968fef06-03d0-4711-8426-0cff26aec431',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'MixerCanvas.tsx:render',message:'Photos array in render',data:{photosLength:photos.length,photoIds:photos.map(p=>p.id),photoPositions:photos.map(p=>({x:p.x,y:p.y}))},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'C'})}).catch(()=>{});
-        // #endregion
-        return null;
-      })()}
       {photos.map((photo) => (
         <PhotoCard 
           key={photo.id}
@@ -148,10 +122,10 @@ export const MixerCanvas: React.FC = () => {
         />
       ))}
       
-      {/* Drag Overlay Hint */}
+      {/* Drag Overlay */}
       {isDragActive && (
-         <div className="absolute inset-0 border-4 border-te-orange rounded-xl m-4 pointer-events-none flex items-center justify-center bg-white/50 z-50">
-            <span className="text-te-orange font-bold font-mono text-xl">ADD TRACK</span>
+         <div className="absolute inset-0 border-2 border-te-orange/40 rounded-lg m-6 pointer-events-none flex items-center justify-center bg-te-surface/60 z-50">
+            <span className="text-te-orange font-semibold font-mono text-sm uppercase tracking-[0.15em]">Add Track</span>
          </div>
       )}
     </div>

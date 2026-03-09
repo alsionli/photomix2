@@ -77,11 +77,15 @@
 }
 
 @theme {
-  --color-te-bg: #EAEAE5;
-  --color-te-dark: #2A2A2A;
-  --color-te-orange: #FF4F00;
-  --color-te-gray: #8C8C8C;
-  --color-te-panel: #D4D4D0;
+  --color-te-bg: #EAEAEB;
+  --color-te-dark: #333336;
+  --color-te-orange: #E85D26;
+  --color-te-amber: #E8A020;
+  --color-te-gray: #929296;
+  --color-te-panel: #E0E0E2;
+  --color-te-surface: #F2F2F3;
+  --color-te-inset: #D4D4D6;
+  --color-te-chrome: #CBCBCE;
 
   --font-sans: "Geist Sans", system-ui, sans-serif;
   --font-mono: "Geist Mono", Menlo, Monaco, "Courier New", monospace;
@@ -102,3 +106,25 @@ body {
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
 }
+
+/* Braun speaker grid pattern */
+.speaker-grid {
+  background-image: radial-gradient(circle at center, var(--color-te-dark) 0.8px, transparent 0.8px);
+  background-size: 5px 5px;
+}
+
+/* Braun inset panel effect */
+.braun-inset {
+  box-shadow:
+    inset 1px 1px 3px rgba(0,0,0,0.12),
+    inset -1px -1px 1px rgba(255,255,255,0.3);
+}
+
+/* Braun raised surface */
+.braun-raised {
+  box-shadow:
+    0 1px 0 rgba(255,255,255,0.6),
+    0 2px 4px rgba(0,0,0,0.08),
+    0 4px 12px rgba(0,0,0,0.06);
+}
+
