@@ -78,6 +78,8 @@ export class LoopEngine {
   private currentStyle: MusicStyle = 'Groove';
   private currentVariation = 0;
   private photoCount = 0;
+  private isPlayingGroovePulse = false;
+  private groovePulseBuffer: Tone.ToneAudioBuffer | null = null;
 
   public isLoaded = false;
 
@@ -104,13 +106,39 @@ export class LoopEngine {
 
       this.loops.set(style, { rhythmA, rhythmB, melody, atmosphere, bpm, duration });
     }
+    await this.loadGroovePulse();
     this.isLoaded = true;
+  }
+
+  private loadGroovePulse(): Promise<void> {
+    return new Promise((resolve) => {
+      this.groovePulseBuffer = new Tone.ToneAudioBuffer(
+        '/audio/groove-loop.mp3',
+        () => resolve(),
+        (err) => { console.warn('Failed to load groove loop:', err); resolve(); }
+      );
+    });
   }
 
   setStyle(style: MusicStyle) {
     const changed = this.currentStyle !== style;
     this.currentStyle = style;
     if (changed && this.isLoaded) this.restartAll();
+  }
+
+  setBpm(bpm: number) {
+    const renderedBpm = this.loops.get(this.currentStyle)?.bpm;
+    if (this.isPlayingGroovePulse && this.rhythmPlayer) {
+      this.rhythmPlayer.playbackRate = bpm / 109;
+    } else if (renderedBpm && this.rhythmPlayer) {
+      this.rhythmPlayer.playbackRate = bpm / renderedBpm;
+    }
+    if (renderedBpm && this.melodyPlayer) {
+      this.melodyPlayer.playbackRate = bpm / renderedBpm;
+    }
+    if (renderedBpm && this.atmospherePlayer) {
+      this.atmospherePlayer.playbackRate = bpm / renderedBpm;
+    }
   }
 
   updateFromPhotos(photos: { hue: number; brightness: number }[]) {
@@ -127,16 +155,20 @@ export class LoopEngine {
     const newVar = avgHue > 180 ? 1 : 0;
     if (newVar !== this.currentVariation) {
       this.currentVariation = newVar;
-      this.startRhythm();
+      if (photos.length >= 2) this.startRhythm();
     }
 
     // Always play atmosphere
     if (!this.atmospherePlayer) this.startAtmosphere();
     this.atmosphereChannel.volume.rampTo(photos.length >= 2 ? -6 : -10, 0.3);
 
-    // 2+ photos: rhythm
-    if (photos.length >= 2) {
-      if (!this.rhythmPlayer) this.startRhythm();
+    // 1 photo + Groove: play the downloaded funk groove loop
+    if (photos.length === 1 && this.currentStyle === 'Groove') {
+      if (!this.isPlayingGroovePulse) this.startGroovePulse();
+      this.rhythmChannel.volume.rampTo(-2, 0.3);
+    } else if (photos.length >= 2) {
+      // 2+ photos: synthesized rhythm
+      if (!this.rhythmPlayer || this.isPlayingGroovePulse) this.startRhythm();
       const rVol = Math.min(-2, -8 + photos.length * 1.5);
       this.rhythmChannel.volume.rampTo(rVol, 0.3);
     } else {
@@ -172,6 +204,17 @@ export class LoopEngine {
     if (this.photoCount >= 3) this.startMelody();
   }
 
+  private startGroovePulse() {
+    this.stopRhythm();
+    if (!this.groovePulseBuffer) return;
+    this.rhythmPlayer = new Tone.Player(this.groovePulseBuffer);
+    this.rhythmPlayer.loop = true;
+    this.rhythmPlayer.playbackRate = Tone.Transport.bpm.value / 109;
+    this.rhythmPlayer.connect(this.rhythmChannel);
+    this.rhythmPlayer.sync().start(0);
+    this.isPlayingGroovePulse = true;
+  }
+
   private startRhythm() {
     this.stopRhythm();
     const set = this.loops.get(this.currentStyle);
@@ -179,11 +222,13 @@ export class LoopEngine {
     const buf = this.currentVariation === 0 ? set.rhythmA : set.rhythmB;
     this.rhythmPlayer = new Tone.Player(buf);
     this.rhythmPlayer.loop = true;
+    this.rhythmPlayer.playbackRate = Tone.Transport.bpm.value / set.bpm;
     this.rhythmPlayer.connect(this.rhythmChannel);
     this.rhythmPlayer.sync().start(0);
   }
 
   private stopRhythm() {
+    this.isPlayingGroovePulse = false;
     if (this.rhythmPlayer) {
       this.rhythmPlayer.unsync();
       this.rhythmPlayer.stop();
@@ -198,6 +243,7 @@ export class LoopEngine {
     if (!set) return;
     this.melodyPlayer = new Tone.Player(set.melody);
     this.melodyPlayer.loop = true;
+    this.melodyPlayer.playbackRate = Tone.Transport.bpm.value / set.bpm;
     this.melodyPlayer.connect(this.melodyChannel);
     this.melodyPlayer.sync().start(0);
   }
@@ -217,6 +263,7 @@ export class LoopEngine {
     if (!set) return;
     this.atmospherePlayer = new Tone.Player(set.atmosphere);
     this.atmospherePlayer.loop = true;
+    this.atmospherePlayer.playbackRate = Tone.Transport.bpm.value / set.bpm;
     this.atmospherePlayer.connect(this.atmosphereChannel);
     this.atmospherePlayer.sync().start(0);
   }
