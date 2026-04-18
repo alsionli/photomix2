@@ -30,6 +30,8 @@ export class AudioManager {
   private photos: PhotoData[] = [];
   private chordProgressionIndex = 0;
   private currentBar = 0;
+  private canvasWidth = 800;
+  private canvasHeight = 500;
 
   // ── Master Chain ──
   private masterChannel: Tone.Channel;
@@ -58,6 +60,8 @@ export class AudioManager {
 
   // Loop for photo triggers
   private loop: Tone.Loop | null = null;
+  // Sidechain pump — fires every beat to duck melody/atmosphere against kick.
+  private sidechainLoop: Tone.Loop | null = null;
 
   // ── Humanize ──
 
@@ -117,6 +121,13 @@ export class AudioManager {
     this.loop = new Tone.Loop((time) => {
       this.photoTriggerStep(time);
     }, '16n');
+
+    // ── Sidechain pump, runs in lockstep with perceived kick on each beat ──
+    this.sidechainLoop = new Tone.Loop((time) => {
+      // Skip ducking when no photos are on canvas (silence = nothing to pump).
+      if (this.photos.length === 0) return;
+      this.loopEngine.triggerDuck(time);
+    }, '4n');
   }
 
   public static getInstance(): AudioManager {
@@ -136,10 +147,33 @@ export class AudioManager {
 
   private async generateBuffers() {
     const mainContext = getContext();
-    await this.loopEngine.generateAll();
-    await this.drumSampler.generate();
+    const allStyles: MusicStyle[] = ['Groove', 'Lounge', 'Upbeat', 'Chill', 'Dreamy'];
+    // Render the active style's LoopEngine + DrumSampler first so playback can
+    // start as soon as possible. Remaining styles follow in the same sequence.
+    const ordered: MusicStyle[] = [
+      this.currentStyle,
+      ...allStyles.filter(s => s !== this.currentStyle),
+    ];
+    for (const s of ordered) {
+      await this.loopEngine.generateStyle(s);
+      await this.drumSampler.generateKitFor(s);
+    }
     setContext(mainContext);
     console.log('Audio buffers pre-generated');
+  }
+
+  /** Resolves as soon as the active style's buffers exist — not the full set. */
+  private async waitForActiveStyle() {
+    // Ensure generation has at least started.
+    if (!this.bufferReady) {
+      this.bufferReady = this.generateBuffers();
+    }
+    await Promise.all([
+      this.loopEngine.whenStyleReady(this.currentStyle),
+      this.drumSampler.whenKitReady(this.currentStyle),
+      // The 1-photo groove pulse only matters on Groove; loading MP3 is fast.
+      this.currentStyle === 'Groove' ? this.loopEngine.whenGroovePulseReady() : Promise.resolve(),
+    ]);
   }
 
   public async initialize() {
@@ -148,11 +182,7 @@ export class AudioManager {
     // Buffers MUST finish first — Tone.Offline swaps the global audio context,
     // so calling Tone.start() while offline renders are in-flight would resume
     // the wrong (offline) context, leaving the real one suspended = silence.
-    if (this.bufferReady) {
-      await this.bufferReady;
-    } else {
-      await this.generateBuffers();
-    }
+    await this.waitForActiveStyle();
 
     // Now safe to start the real audio context (user gesture still valid)
     await Tone.start();
@@ -160,10 +190,11 @@ export class AudioManager {
     this.isInitialized = true;
     console.log('Audio Engine Initialized');
     this.loop?.start(0);
+    this.sidechainLoop?.start(0);
 
     this.updateStyle(this.currentStyle);
     if (this.photos.length > 0) {
-      this.loopEngine.updateFromPhotos(this.photos);
+      this.loopEngine.updateFromPhotos(this.photos, this.canvasWidth, this.canvasHeight);
     }
   }
 
@@ -198,7 +229,21 @@ export class AudioManager {
     this.loopEngine.setStyle(style);
     this.drumSampler.setStyle(style);
 
-    // Adjust trigger effects per style
+    // If this style's buffers haven't been rendered yet, re-apply once they are
+    // so the user isn't stuck in silence.
+    Promise.all([
+      this.loopEngine.whenStyleReady(style),
+      this.drumSampler.whenKitReady(style),
+    ]).then(() => {
+      if (this.currentStyle !== style) return; // user switched again
+      this.loopEngine.setStyle(style);
+      if (this.photos.length > 0) {
+        this.loopEngine.updateFromPhotos(this.photos, this.canvasWidth, this.canvasHeight);
+      }
+    });
+
+    // Adjust trigger effects + sidechain depth per style.
+    // Depth 0 = no duck; 1 = full silence on each beat.
     switch (style) {
       case 'Groove':
         this.triggerReverb.decay = 0.6;
@@ -206,6 +251,7 @@ export class AudioManager {
         this.triggerDelay.wet.value = 0.08;
         this.lead.set({ harmonicity: 4, modulationIndex: 10 });
         this.chords.set({ oscillator: { type: 'sawtooth' }, envelope: { attack: 0.005, decay: 0.08, sustain: 0.05, release: 0.1 } });
+        this.loopEngine.setSidechainDepth(0.45);
         break;
       case 'Lounge':
         this.triggerReverb.decay = 2.5;
@@ -213,6 +259,7 @@ export class AudioManager {
         this.triggerDelay.wet.value = 0.2;
         this.lead.set({ harmonicity: 1.5, modulationIndex: 3 });
         this.chords.set({ oscillator: { type: 'sine' }, envelope: { attack: 0.1, decay: 0.4, sustain: 0.4, release: 1 } });
+        this.loopEngine.setSidechainDepth(0.15);
         break;
       case 'Upbeat':
         this.triggerReverb.decay = 1.2;
@@ -220,6 +267,7 @@ export class AudioManager {
         this.triggerDelay.wet.value = 0.12;
         this.lead.set({ harmonicity: 3, modulationIndex: 8 });
         this.chords.set({ oscillator: { type: 'sawtooth' }, envelope: { attack: 0.02, decay: 0.2, sustain: 0.3, release: 0.4 } });
+        this.loopEngine.setSidechainDepth(0.55);
         break;
       case 'Chill':
         this.triggerReverb.decay = 2.0;
@@ -227,6 +275,7 @@ export class AudioManager {
         this.triggerDelay.wet.value = 0.18;
         this.lead.set({ harmonicity: 1.5, modulationIndex: 2.5 });
         this.chords.set({ oscillator: { type: 'triangle' }, envelope: { attack: 0.04, decay: 0.35, sustain: 0.3, release: 0.8 } });
+        this.loopEngine.setSidechainDepth(0.25);
         break;
       case 'Dreamy':
         this.triggerReverb.decay = 5;
@@ -234,6 +283,7 @@ export class AudioManager {
         this.triggerDelay.wet.value = 0.3;
         this.lead.set({ harmonicity: 1, modulationIndex: 1.5 });
         this.chords.set({ oscillator: { type: 'sine' }, envelope: { attack: 1, decay: 1, sustain: 0.7, release: 2.5 } });
+        this.loopEngine.setSidechainDepth(0.1);
         break;
     }
 
@@ -247,7 +297,15 @@ export class AudioManager {
 
   public setPhotos(photos: PhotoData[]) {
     this.photos = photos;
-    this.loopEngine.updateFromPhotos(photos);
+    this.loopEngine.updateFromPhotos(photos, this.canvasWidth, this.canvasHeight);
+  }
+
+  public setCanvasSize(width: number, height: number) {
+    if (width > 0) this.canvasWidth = width;
+    if (height > 0) this.canvasHeight = height;
+    if (this.photos.length > 0) {
+      this.loopEngine.updateFromPhotos(this.photos, this.canvasWidth, this.canvasHeight);
+    }
   }
 
   // ═══════════════════════════════════════
@@ -273,41 +331,74 @@ export class AudioManager {
     const chords = CHORD_PROGRESSIONS[this.currentStyle];
     if (!scale || !chords) return;
 
-    // Each photo triggers its own sound based on position/color
-    this.photos.forEach((photo, index) => {
-      // X position → which step this photo triggers on
-      const normalizedX = Math.min(Math.max(photo.x / 800, 0), 1);
-      const baseStep = Math.floor(normalizedX * 16);
-      const triggerStep = (baseStep + index * 3) % 16;
+    const cw = this.canvasWidth || 800;
+    const ch = this.canvasHeight || 500;
+    const refArea = Math.max(cw * ch * 0.08, 20000);
 
+    // ── Beat weight for probabilistic gating ──
+    // Downbeats (0,4,8,12) always play; "&" positions (2,6,10,14) often play;
+    // "e" and "a" (odd 16ths) play rarely. Avoids a muddy wall of notes.
+    const beatWeight =
+      stepIndex % 4 === 0 ? 1.0 :
+      stepIndex % 4 === 2 ? 0.7 :
+      0.35;
+
+    // Current harmonic context
+    const currentChord = chords[this.chordProgressionIndex];
+
+    this.photos.forEach((photo, index) => {
+      const centerX = photo.x + (photo.width || 0) / 2;
+      const centerY = photo.y + (photo.height || 0) / 2;
+      const normalizedX = Math.min(Math.max(centerX / cw, 0), 1);
+      const normalizedY = Math.min(Math.max(centerY / ch, 0), 1);
+
+      // X position → which 16th-note step this photo is anchored to
+      const baseStep = Math.min(15, Math.floor(normalizedX * 16));
+      const triggerStep = (baseStep + index * 3) % 16;
       if (triggerStep !== stepIndex) return;
 
-      // Photo properties → sound parameters
+      // Probabilistic thinning. Density grows slowly with photo count, so
+      // 1 photo → nearly always fires; 5 photos → thinned to leave air.
+      const densityFromCount = Math.max(0.4, 1 - (this.photos.length - 1) * 0.08);
+      const playChance = beatWeight * densityFromCount;
+      if (Math.random() > playChance) return;
+
       const area = (photo.width || 140) * (photo.height || 140);
-      const sizeFactor = Math.min(Math.max(area / 40000, 0.1), 1);
-      const noteIndex = Math.floor((photo.hue / 360) * scale.length);
-      const baseNote = scale[noteIndex % scale.length];
-      const baseVelocity = Math.min(Math.max(photo.brightness / 255, 0.15), 0.85);
-      const velocity = this.humanizeVelocity(baseVelocity * (0.2 + 0.4 * sizeFactor));
-      const duration: Tone.Unit.Time = sizeFactor < 0.3 ? '16n' : sizeFactor < 0.6 ? '8n' : '4n';
+      const sizeFactor = Math.min(Math.max(area / refArea, 0.1), 1);
+      const baseVelocity = Math.min(Math.max(photo.brightness / 255, 0.2), 0.9);
+      const velocity = this.humanizeVelocity(baseVelocity * (0.25 + 0.8 * sizeFactor));
+      const duration: Tone.Unit.Time = sizeFactor < 0.25 ? '16n' : sizeFactor < 0.55 ? '8n' : sizeFactor < 0.8 ? '4n' : '2n';
+      const pan = normalizedX * 2 - 1;
 
-      // Y position → which instrument
-      const normalizedY = Math.min(Math.max(photo.y / 500, 0), 1);
+      // ── Pitch selection: prefer CHORD TONES, scale only for passing notes ──
+      const useChordTone = stepIndex % 4 === 0 || stepIndex % 4 === 2 || Math.random() < 0.55;
+      const pool = useChordTone ? currentChord : scale;
+      // Hue gives each photo a stable index into the pool (so the same photo
+      // always picks the same "slot" of the chord/scale, like a voice).
+      const poolIdx = Math.floor((photo.hue / 360) * pool.length) % pool.length;
+      const baseNote = pool[(poolIdx + pool.length) % pool.length];
 
-      if (normalizedY < 0.3) {
-        // Top zone: Lead melody
-        const note = baseNote.replace(/[0-9]/, (m) => String(parseInt(m) + 1));
+      if (normalizedY < 0.33) {
+        // Top zone: Lead melody — bump up an octave for presence.
+        this.leadChannel.pan.rampTo(pan, 0.05);
+        const octaveBump = sizeFactor > 0.6 ? 2 : 1;
+        const note = baseNote.replace(/[0-9]/, (m) => String(parseInt(m) + octaveBump));
         this.lead.triggerAttackRelease(note, duration, time + this.humanizeTime(), velocity);
-      } else if (normalizedY < 0.6) {
-        // Middle zone: Chord stab
-        const currentChord = chords[this.chordProgressionIndex];
-        const chordNote = currentChord[index % currentChord.length];
-        this.chords.triggerAttackRelease([chordNote], '16n', time + this.humanizeTime(), velocity * 0.6);
+      } else if (normalizedY < 0.66) {
+        // Middle zone: Chord stab — voice with chord tones under the selection.
+        this.chordTriggerChannel.pan.rampTo(pan, 0.05);
+        const voices = Math.max(1, Math.round(1 + sizeFactor * (currentChord.length - 1)));
+        // Build a voicing centered on the pool pick, extending with chord tones.
+        const notes = Array.from({ length: voices }, (_, i) =>
+          currentChord[(poolIdx + i) % currentChord.length]
+        );
+        this.chords.triggerAttackRelease(notes, duration, time + this.humanizeTime(), velocity * 0.7);
       } else {
-        // Bottom zone: Percussion accent
-        this.drumSampler.trigger('rim', time + this.humanizeTime(), velocity * 0.5);
-        if (sizeFactor > 0.5) {
-          this.drumSampler.trigger('kick', time + this.humanizeTime(), velocity * 0.2);
+        // Bottom zone: Percussion accent — big photos also hit kick.
+        this.triggerChannel.pan.rampTo(pan, 0.05);
+        this.drumSampler.trigger('rim', time + this.humanizeTime(), velocity * 0.7);
+        if (sizeFactor > 0.45) {
+          this.drumSampler.trigger('kick', time + this.humanizeTime(), velocity * (0.25 + 0.5 * sizeFactor));
         }
       }
     });

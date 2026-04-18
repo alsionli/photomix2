@@ -15,12 +15,30 @@ export class DrumSampler {
     this.output = output;
   }
 
-  async generate() {
-    const styles: StyleName[] = ['Groove', 'Lounge', 'Upbeat', 'Chill', 'Dreamy'];
-    for (const s of styles) {
-      await this.generateKit(s);
+  private kitReady = new Map<StyleName, Promise<void>>();
+  private kitResolvers = new Map<StyleName, () => void>();
+
+  private ensureKitReady(style: StyleName) {
+    if (!this.kitReady.has(style)) {
+      this.kitReady.set(style, new Promise<void>((res) => this.kitResolvers.set(style, res)));
     }
-    this.isLoaded = true;
+  }
+
+  /** Render a single kit. Safe to call repeatedly (no-op if cached). */
+  async generateKitFor(style: StyleName) {
+    this.ensureKitReady(style);
+    if (this.kits.has(style)) {
+      this.kitResolvers.get(style)?.();
+      return;
+    }
+    await this.generateKit(style);
+    this.kitResolvers.get(style)?.();
+    if (!this.isLoaded) this.isLoaded = true;
+  }
+
+  whenKitReady(style: StyleName): Promise<void> {
+    this.ensureKitReady(style);
+    return this.kitReady.get(style)!;
   }
 
   setStyle(style: StyleName) {

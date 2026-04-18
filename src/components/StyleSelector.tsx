@@ -3,6 +3,7 @@ import { useMixerStore } from '../store/useMixerStore';
 import type { MusicStyle } from '../store/useMixerStore';
 import { PushBtn } from './PushBtn';
 import { Knob } from './Knob';
+import { Visualizer } from './Visualizer';
 import { Play, Square } from 'lucide-react';
 
 const STYLES: MusicStyle[] = ['Groove', 'Lounge', 'Upbeat', 'Chill', 'Dreamy'];
@@ -78,14 +79,12 @@ export const StyleSelector: React.FC = () => {
         </div>
       </div>
 
-      {/* Speaker Grid - Braun signature */}
+      {/* Speaker grid — static dot matrix with an audio-reactive LED overlay. */}
       <div className="mx-5 mb-4 flex-shrink-0">
-        <div 
-          className="speaker-grid rounded-lg h-20 opacity-20"
-          style={{
-            boxShadow: 'inset 0 1px 3px rgba(0,0,0,0.1), inset 0 -1px 1px rgba(255,255,255,0.2)',
-          }}
-        />
+        <div className="h-20 relative overflow-hidden">
+          <div className="speaker-grid absolute inset-0 opacity-20" />
+          <Visualizer width={216} height={80} />
+        </div>
       </div>
       
       {/* Branding */}

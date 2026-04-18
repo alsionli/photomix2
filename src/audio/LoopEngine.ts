@@ -74,6 +74,10 @@ export class LoopEngine {
   private rhythmChannel: Tone.Channel;
   private melodyChannel: Tone.Channel;
   private atmosphereChannel: Tone.Channel;
+  // Sidechain bus — melody + atmosphere route through here so the kick can
+  // rhythmically duck them (the classic "pumping" modern sound).
+  private sidechainGain: Tone.Gain;
+  private sidechainDepth = 0.35; // 0 = no duck, 1 = full silence
 
   private currentStyle: MusicStyle = 'Groove';
   private currentVariation = 0;
@@ -82,32 +86,79 @@ export class LoopEngine {
   private groovePulseBuffer: Tone.ToneAudioBuffer | null = null;
 
   public isLoaded = false;
+  private styleReady = new Map<MusicStyle, Promise<void>>();
+  private styleResolvers = new Map<MusicStyle, () => void>();
+  private groovePulseReady: Promise<void> | null = null;
 
   constructor(output: Tone.InputNode) {
+    // Rhythm goes straight to the output (don't duck itself).
     this.rhythmChannel = new Tone.Channel(-2, 0).connect(output as unknown as Tone.ToneAudioNode);
-    this.melodyChannel = new Tone.Channel(-6, 0).connect(output as unknown as Tone.ToneAudioNode);
-    this.atmosphereChannel = new Tone.Channel(-6, 0).connect(output as unknown as Tone.ToneAudioNode);
+    // Sidechain bus for melody + atmosphere.
+    this.sidechainGain = new Tone.Gain(1).connect(output as unknown as Tone.ToneAudioNode);
+    this.melodyChannel = new Tone.Channel(-6, 0).connect(this.sidechainGain);
+    this.atmosphereChannel = new Tone.Channel(-6, 0).connect(this.sidechainGain);
+    // Start the MP3 fetch eagerly — it's cheap and independent of offline rendering.
+    this.groovePulseReady = this.loadGroovePulse();
   }
 
-  async generateAll() {
-    const styles: MusicStyle[] = ['Groove', 'Lounge', 'Upbeat', 'Chill', 'Dreamy'];
-    for (const style of styles) {
-      const bpm = STYLE_CONFIG[style].bpm;
-      const sixteenth = 60 / bpm / 4;
-      const bars = 4;
-      const duration = bars * 4 * (60 / bpm);
+  /** Configure how deep the sidechain duck is (0..1). */
+  setSidechainDepth(depth: number) {
+    this.sidechainDepth = Math.min(1, Math.max(0, depth));
+  }
 
-      // Sequential rendering: Tone.Offline temporarily swaps the global audio
-      // context, so parallel calls via Promise.all corrupt the context chain.
-      const rhythmA = await this.renderRhythm(style, 'A', sixteenth, bars, duration);
-      const rhythmB = await this.renderRhythm(style, 'B', sixteenth, bars, duration);
-      const melody = await this.renderMelody(style, sixteenth, bars, duration);
-      const atmosphere = await this.renderAtmosphere(style, sixteenth, bars, duration);
+  /** Schedule one pump of the sidechain envelope at `time`.
+   *  The gain dips to `1 - depth` instantly, then rises back to 1 by `release`. */
+  triggerDuck(time: number, attack = 0.005, release = 0.25) {
+    const depth = this.sidechainDepth;
+    if (depth <= 0.001) return;
+    const g = this.sidechainGain.gain;
+    const floor = Math.max(0.0001, 1 - depth);
+    // Quick dip then exponential recovery.
+    g.cancelScheduledValues(time);
+    g.setValueAtTime(1, time);
+    g.linearRampToValueAtTime(floor, time + attack);
+    g.exponentialRampToValueAtTime(1, time + attack + release);
+  }
 
-      this.loops.set(style, { rhythmA, rhythmB, melody, atmosphere, bpm, duration });
+  private ensureStyleReady(style: MusicStyle) {
+    if (!this.styleReady.has(style)) {
+      this.styleReady.set(style, new Promise<void>((res) => this.styleResolvers.set(style, res)));
     }
-    await this.loadGroovePulse();
-    this.isLoaded = true;
+  }
+
+  /** Render a single style's buffers. Safe to call repeatedly (no-op if cached). */
+  async generateStyle(style: MusicStyle) {
+    this.ensureStyleReady(style);
+    if (this.loops.has(style)) {
+      this.styleResolvers.get(style)?.();
+      return;
+    }
+    const bpm = STYLE_CONFIG[style].bpm;
+    const sixteenth = 60 / bpm / 4;
+    const bars = 4;
+    const duration = bars * 4 * (60 / bpm);
+
+    // Sequential rendering: Tone.Offline temporarily swaps the global audio
+    // context, so parallel calls via Promise.all corrupt the context chain.
+    const rhythmA = await this.renderRhythm(style, 'A', sixteenth, bars, duration);
+    const rhythmB = await this.renderRhythm(style, 'B', sixteenth, bars, duration);
+    const melody = await this.renderMelody(style, sixteenth, bars, duration);
+    const atmosphere = await this.renderAtmosphere(style, sixteenth, bars, duration);
+
+    this.loops.set(style, { rhythmA, rhythmB, melody, atmosphere, bpm, duration });
+    this.styleResolvers.get(style)?.();
+    if (!this.isLoaded) this.isLoaded = true;
+  }
+
+  /** Resolves when `style` has its buffers ready (creates a pending promise if not started yet). */
+  whenStyleReady(style: MusicStyle): Promise<void> {
+    this.ensureStyleReady(style);
+    return this.styleReady.get(style)!;
+  }
+
+  /** Resolves when the 1-photo groove pulse loop is loaded. */
+  whenGroovePulseReady(): Promise<void> {
+    return this.groovePulseReady ?? Promise.resolve();
   }
 
   private loadGroovePulse(): Promise<void> {
@@ -141,7 +192,11 @@ export class LoopEngine {
     }
   }
 
-  updateFromPhotos(photos: { hue: number; brightness: number }[]) {
+  updateFromPhotos(
+    photos: { hue: number; brightness: number; x?: number; y?: number; width?: number; height?: number }[],
+    canvasWidth = 800,
+    canvasHeight = 500
+  ) {
     this.photoCount = photos.length;
     if (!this.isLoaded) return;
     if (photos.length === 0) {
@@ -152,6 +207,29 @@ export class LoopEngine {
     const avgHue = photos.reduce((s, p) => s + p.hue, 0) / photos.length;
     const avgBright = photos.reduce((s, p) => s + p.brightness, 0) / photos.length;
 
+    // Aggregate size: how much of the canvas is covered (0..1, clamped).
+    const canvasArea = Math.max(1, canvasWidth * canvasHeight);
+    const coverage = Math.min(
+      1,
+      photos.reduce((s, p) => s + ((p.width || 0) * (p.height || 0)), 0) / canvasArea
+    );
+    // Size factor per-photo average (0..1).
+    const avgSize = photos.reduce((s, p) => {
+      const refArea = Math.max(canvasArea * 0.08, 20000);
+      const a = (p.width || 0) * (p.height || 0);
+      return s + Math.min(1, a / refArea);
+    }, 0) / photos.length;
+
+    // Average horizontal position → overall stereo bias for the loop bed.
+    const avgNormX = photos.reduce((s, p) => {
+      const cx = (p.x || 0) + (p.width || 0) / 2;
+      return s + Math.min(1, Math.max(0, cx / Math.max(1, canvasWidth)));
+    }, 0) / photos.length;
+    const pan = avgNormX * 2 - 1; // -1 left .. +1 right
+    this.rhythmChannel.pan.rampTo(pan * 0.6, 0.3);
+    this.melodyChannel.pan.rampTo(pan * 0.4, 0.3);
+    // Atmosphere stays mostly centered for stability.
+
     const newVar = avgHue > 180 ? 1 : 0;
     if (newVar !== this.currentVariation) {
       this.currentVariation = newVar;
@@ -160,33 +238,34 @@ export class LoopEngine {
 
     // Always play atmosphere
     if (!this.atmospherePlayer) this.startAtmosphere();
-    this.atmosphereChannel.volume.rampTo(photos.length >= 2 ? -6 : -10, 0.3);
 
     // 1 photo + Groove: play the downloaded funk groove loop
     if (photos.length === 1 && this.currentStyle === 'Groove') {
       if (!this.isPlayingGroovePulse) this.startGroovePulse();
-      this.rhythmChannel.volume.rampTo(-2, 0.3);
+      // Louder when the photo is bigger.
+      this.rhythmChannel.volume.rampTo(-6 + avgSize * 6, 0.3);
     } else if (photos.length >= 2) {
-      // 2+ photos: synthesized rhythm
       if (!this.rhythmPlayer || this.isPlayingGroovePulse) this.startRhythm();
-      const rVol = Math.min(-2, -8 + photos.length * 1.5);
+      // Base volume from count, boosted by average photo size (up to +5 dB).
+      const rVol = Math.min(-1, -10 + photos.length * 1.5 + avgSize * 5);
       this.rhythmChannel.volume.rampTo(rVol, 0.3);
     } else {
       this.stopRhythm();
     }
 
-    // 3+ photos: melody
+    // 3+ photos: melody; bigger photos → louder melody.
     if (photos.length >= 3) {
       if (!this.melodyPlayer) this.startMelody();
-      const mVol = Math.min(-3, -8 + (photos.length - 2) * 2);
+      const mVol = Math.min(-2, -10 + (photos.length - 2) * 2 + avgSize * 4);
       this.melodyChannel.volume.rampTo(mVol, 0.3);
     } else {
       this.stopMelody();
     }
 
-    // Brightness affects atmosphere brightness (subtle pitch/filter feel via volume)
+    // Atmosphere volume reflects brightness AND how much the photos fill the canvas.
     const brightFactor = avgBright / 255;
-    this.atmosphereChannel.volume.rampTo(-10 + brightFactor * 6, 0.5);
+    const atmoVol = -12 + brightFactor * 5 + coverage * 4;
+    this.atmosphereChannel.volume.rampTo(atmoVol, 0.5);
   }
 
   stopAll() {

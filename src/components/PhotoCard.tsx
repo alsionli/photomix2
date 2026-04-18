@@ -15,7 +15,7 @@ interface PhotoCardProps {
 }
 
 export const PhotoCard: React.FC<PhotoCardProps> = ({ id, url, x, y, width, height, aspectRatio, hue: _hue = 0 }) => {
-  const { updatePhotoPosition, updatePhotoSize, removePhoto } = useMixerStore();
+  const { updatePhotoPosition, updatePhotoSize, removePhoto, canvasWidth, canvasHeight } = useMixerStore();
   const resizeStart = React.useRef<{ x: number; y: number; width: number; height: number } | null>(null);
   
   // Use motion values for smooth dragging
@@ -59,7 +59,7 @@ export const PhotoCard: React.FC<PhotoCardProps> = ({ id, url, x, y, width, heig
       drag
       dragMomentum={false}
       dragElastic={0}
-      dragConstraints={{ left: 0, top: 0, right: 800, bottom: 500 }}
+      dragConstraints={{ left: 0, top: 0, right: Math.max(0, canvasWidth - width), bottom: Math.max(0, canvasHeight - height) }}
       initial={{ scale: 0, opacity: 0 }}
       animate={{ scale: 1, opacity: 1 }}
       whileHover={{ scale: 1.02, zIndex: 10 }}

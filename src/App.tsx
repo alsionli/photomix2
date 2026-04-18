@@ -1,7 +1,6 @@
 import { DeviceContainer } from './components/DeviceContainer';
 import { StyleSelector } from './components/StyleSelector';
 import { MixerCanvas } from './components/MixerCanvas';
-import { Visualizer } from './components/Visualizer';
 import { useAudioEngine } from './hooks/useAudioEngine';
 import { useMixerStore } from './store/useMixerStore';
 
@@ -26,8 +25,6 @@ function App() {
                 />
                 Ready
             </span>
-
-            <Visualizer />
 
             <span className="uppercase tracking-[0.15em] font-semibold">Stereo Out</span>
          </div>

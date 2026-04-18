@@ -1,4 +1,4 @@
-import React, { useRef, useCallback } from 'react';
+import React, { useRef, useCallback, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { useMixerStore } from '../store/useMixerStore';
 import { analyzeImage } from '../utils/analyzeImage';
@@ -7,8 +7,25 @@ import { Upload } from 'lucide-react';
 import { cn } from '../utils/cn';
 
 export const MixerCanvas: React.FC = () => {
-  const { photos, addPhoto, updatePhotoAnalysis } = useMixerStore();
+  const { photos, addPhoto, updatePhotoAnalysis, setCanvasSize } = useMixerStore();
   const containerRef = useRef<HTMLDivElement>(null);
+
+  // Observe canvas size and report to the store so the audio engine can
+  // normalize photo positions/sizes against the real canvas dimensions.
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const update = () => {
+      const rect = el.getBoundingClientRect();
+      if (rect.width > 0 && rect.height > 0) {
+        setCanvasSize(rect.width, rect.height);
+      }
+    };
+    update();
+    const ro = new ResizeObserver(update);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [setCanvasSize]);
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     if (!containerRef.current) return;
@@ -28,7 +45,7 @@ export const MixerCanvas: React.FC = () => {
       await new Promise((resolve) => { img.onload = resolve; });
 
       const aspectRatio = img.naturalWidth / img.naturalHeight;
-      const baseSize = 140;
+      const baseSize = 240;
       let width: number, height: number;
       if (aspectRatio >= 1) {
         width = baseSize;

@@ -23,7 +23,9 @@ interface MixerState {
   masterVolume: number; // -60 to 0 dB
   bpm: number;
   photos: PhotoData[];
-  
+  canvasWidth: number;
+  canvasHeight: number;
+
   // Actions
   setStyle: (style: MusicStyle) => void;
   togglePlay: () => void;
@@ -34,6 +36,7 @@ interface MixerState {
   updatePhotoPosition: (id: string, x: number, y: number) => void;
   updatePhotoSize: (id: string, width: number, height: number) => void;
   updatePhotoAnalysis: (id: string, analysis: Pick<PhotoData, 'dominantColor' | 'palette' | 'brightness' | 'contrast' | 'hue'>) => void;
+  setCanvasSize: (width: number, height: number) => void;
 }
 
 export const useMixerStore = create<MixerState>((set) => ({
@@ -42,6 +45,8 @@ export const useMixerStore = create<MixerState>((set) => ({
   masterVolume: -10,
   bpm: 120,
   photos: [],
+  canvasWidth: 800,
+  canvasHeight: 500,
 
   setStyle: (style) => set({ activeStyle: style }),
   togglePlay: () => set((state) => ({ isPlaying: !state.isPlaying })),
@@ -59,4 +64,5 @@ export const useMixerStore = create<MixerState>((set) => ({
   updatePhotoAnalysis: (id, analysis) => set((state) => ({
     photos: state.photos.map(p => p.id === id ? { ...p, ...analysis } : p)
   })),
+  setCanvasSize: (width, height) => set({ canvasWidth: width, canvasHeight: height }),
 }));

@@ -4,7 +4,7 @@ import { AudioManager } from '../audio/AudioManager';
 import { STYLE_CONFIG } from '../audio/patterns';
 
 export const useAudioEngine = () => {
-  const { activeStyle, isPlaying, masterVolume, bpm, photos, setBpm } = useMixerStore();
+  const { activeStyle, isPlaying, masterVolume, bpm, photos, setBpm, canvasWidth, canvasHeight } = useMixerStore();
   const audioManagerRef = useRef<AudioManager | null>(null);
 
   // Eager buffer generation on mount (no user gesture needed)
@@ -59,6 +59,13 @@ export const useAudioEngine = () => {
     if (!manager) return;
     manager.setBpm(bpm);
   }, [bpm]);
+
+  // Sync canvas dimensions so the audio engine can normalize photo coords.
+  useEffect(() => {
+    const manager = audioManagerRef.current;
+    if (!manager) return;
+    manager.setCanvasSize(canvasWidth, canvasHeight);
+  }, [canvasWidth, canvasHeight]);
 
   // Sync Photos — auto-play when first photo is added
   const prevPhotoCount = useRef(0);
