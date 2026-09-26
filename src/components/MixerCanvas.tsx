@@ -6,62 +6,27 @@ import { PhotoCard } from './PhotoCard';
 import { Play, Upload } from 'lucide-react';
 import { cn } from '../utils/cn';
 
-const DEMO_SCENES = [
+const DEMO_PHOTOS = [
   {
-    name: 'sunset-drive.svg',
-    svg: `<svg xmlns="http://www.w3.org/2000/svg" width="960" height="640" viewBox="0 0 960 640">
-      <defs>
-        <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#F2B36F"/><stop offset=".55" stop-color="#DF6A4D"/><stop offset="1" stop-color="#713B55"/></linearGradient>
-        <linearGradient id="road" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#423748"/><stop offset="1" stop-color="#171B28"/></linearGradient>
-      </defs>
-      <rect width="960" height="640" fill="url(#sky)"/>
-      <circle cx="735" cy="180" r="78" fill="#FFE9B8" opacity=".9"/>
-      <path d="M0 382 155 280l118 102 132-152 185 152 150-117 220 117v92H0Z" fill="#5C3A4C" opacity=".72"/>
-      <path d="M0 430 210 360l153 58 182-91 415 108v205H0Z" fill="url(#road)"/>
-      <path d="m445 640 45-210h29l54 210Z" fill="#D7B27C" opacity=".75"/>
-      <path d="m492 575 8-42h10l10 42Z" fill="#F6E3B2"/>
-    </svg>`,
+    name: 'sunset-drive.jpg',
+    url: 'https://images.unsplash.com/photo-1769138602665-b8610d4ed904?auto=format&fit=crop&w=1400&q=82',
   },
   {
-    name: 'coastal-light.svg',
-    svg: `<svg xmlns="http://www.w3.org/2000/svg" width="720" height="960" viewBox="0 0 720 960">
-      <defs>
-        <linearGradient id="sea" x1="0" y1="0" x2="0" y2="1"><stop stop-color="#BBD9DA"/><stop offset=".46" stop-color="#5F9FA8"/><stop offset="1" stop-color="#245E72"/></linearGradient>
-        <linearGradient id="sand" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#F1D7A5"/><stop offset="1" stop-color="#C89A65"/></linearGradient>
-      </defs>
-      <rect width="720" height="960" fill="#DCE7E2"/>
-      <rect y="190" width="720" height="770" fill="url(#sea)"/>
-      <path d="M0 504c132-70 226-47 343 1 128 53 242 60 377-27v482H0Z" fill="url(#sand)"/>
-      <path d="M0 452c125-54 235-43 345 4 126 54 244 57 375-33" fill="none" stroke="#F4F2E8" stroke-width="24" opacity=".85"/>
-      <path d="M92 340c72-43 146-42 219-6M406 288c70-30 138-25 203 13" fill="none" stroke="#DCEFEB" stroke-width="9" stroke-linecap="round" opacity=".6"/>
-      <circle cx="128" cy="132" r="54" fill="#FAE5A8"/>
-      <path d="M524 680c54-31 106-29 153 4l-17 148H534Z" fill="#B36246" opacity=".8"/>
-    </svg>`,
+    name: 'coastal-light.jpg',
+    url: 'https://images.unsplash.com/photo-1771002382315-9be24abde4e4?auto=format&fit=crop&w=1400&q=82',
   },
   {
-    name: 'city-after-dark.svg',
-    svg: `<svg xmlns="http://www.w3.org/2000/svg" width="960" height="640" viewBox="0 0 960 640">
-      <defs>
-        <linearGradient id="night" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#101936"/><stop offset=".58" stop-color="#263466"/><stop offset="1" stop-color="#5E315C"/></linearGradient>
-        <linearGradient id="glow" x1="0" y1="0" x2="1" y2="0"><stop stop-color="#47C7C4"/><stop offset=".5" stop-color="#E96C80"/><stop offset="1" stop-color="#F3B85E"/></linearGradient>
-      </defs>
-      <rect width="960" height="640" fill="url(#night)"/>
-      <circle cx="770" cy="114" r="58" fill="#E8E5D4" opacity=".88"/>
-      <path d="M0 280h132v-83h119v142h104V153h132v172h91V224h128v78h109V174h145v466H0Z" fill="#11182D"/>
-      <g fill="#F4C06B" opacity=".8">
-        <path d="M34 326h18v25H34zm44 0h18v25H78zm89-81h18v25h-18zm42 0h18v25h-18zm184-43h18v25h-18zm45 0h18v25h-18zm183 68h18v25h-18zm44 0h18v25h-18zm179-50h18v25h-18zm46 0h18v25h-18z"/>
-      </g>
-      <rect y="472" width="960" height="168" fill="#0A1022"/>
-      <path d="M0 520h960" stroke="url(#glow)" stroke-width="8" opacity=".85"/>
-      <path d="M120 640 386 488h188L834 640Z" fill="#1D2948"/>
-      <path d="m467 640 9-120h18l9 120Z" fill="#E6D1A3" opacity=".7"/>
-    </svg>`,
+    name: 'city-after-dark.jpg',
+    url: 'https://images.unsplash.com/photo-1773504091990-0513ff879767?auto=format&fit=crop&w=1400&q=82',
   },
 ] as const;
 
-const createDemoFiles = () => DEMO_SCENES.map(({ name, svg }) => (
-  new File([svg], name, { type: 'image/svg+xml' })
-));
+const createDemoFiles = async () => Promise.all(DEMO_PHOTOS.map(async ({ name, url }) => {
+  const response = await fetch(url);
+  if (!response.ok) throw new Error(`Failed to load demo photo: ${name}`);
+  const blob = await response.blob();
+  return new File([blob], name, { type: blob.type || 'image/jpeg' });
+}));
 
 export const MixerCanvas: React.FC = () => {
   const { photos, addPhoto, updatePhotoAnalysis, setCanvasSize } = useMixerStore();
@@ -88,12 +53,9 @@ export const MixerCanvas: React.FC = () => {
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     if (!containerRef.current) return;
     const rect = containerRef.current.getBoundingClientRect();
+    const initialPhotoCount = useMixerStore.getState().photos.length;
 
-    // Process files sequentially or parallel
-    for (const file of acceptedFiles) {
-      // Random initial position if dropped generally, or use drop coordinates if possible
-      // react-dropzone doesn't give drop coordinates easily for the 'drop' event unless we use the event directly
-      // But onDrop gives files. We'll just center them or randomize slightly.
+    const preparedPhotos = await Promise.all(acceptedFiles.map(async (file) => {
       const id = crypto.randomUUID();
       const url = URL.createObjectURL(file);
 
@@ -104,22 +66,48 @@ export const MixerCanvas: React.FC = () => {
 
       const aspectRatio = img.naturalWidth / img.naturalHeight;
       const baseSize = 240;
-      let width: number, height: number;
-      if (aspectRatio >= 1) {
-        width = baseSize;
-        height = baseSize / aspectRatio;
-      } else {
-        height = baseSize;
-        width = baseSize * aspectRatio;
-      }
+      const width = aspectRatio >= 1 ? baseSize : baseSize * aspectRatio;
+      const height = aspectRatio >= 1 ? baseSize / aspectRatio : baseSize;
 
-      // Center the photo with slight offset for multiple photos
+      return { file, id, url, aspectRatio, width, height };
+    }));
+
+    // A fresh multi-photo mix reads best as a row of cards whose edges just
+    // touch. Scale the row down on narrow canvases while preserving the overlap.
+    const useEdgeOverlapLayout = initialPhotoCount === 0 && preparedPhotos.length > 1;
+    const overlap = 24;
+    const naturalRowWidth = preparedPhotos.reduce((sum, photo) => sum + photo.width, 0)
+      - overlap * Math.max(0, preparedPhotos.length - 1);
+    const rowScale = useEdgeOverlapLayout
+      ? Math.min(1, Math.max(1, rect.width - 48) / naturalRowWidth)
+      : 1;
+    const scaledOverlap = overlap * rowScale;
+    const rowWidth = preparedPhotos.reduce((sum, photo) => sum + photo.width * rowScale, 0)
+      - scaledOverlap * Math.max(0, preparedPhotos.length - 1);
+    let rowX = (rect.width - rowWidth) / 2;
+
+    // Process files sequentially or parallel
+    for (const [index, preparedPhoto] of preparedPhotos.entries()) {
+      const { file, id, url, aspectRatio } = preparedPhoto;
+      const width = preparedPhoto.width * rowScale;
+      const height = preparedPhoto.height * rowScale;
+
       const currentPhotos = useMixerStore.getState().photos;
       const existingPhotos = currentPhotos.length;
-      const offsetX = (existingPhotos % 5) * 30 - 60; // Spread horizontally (-60 to +60)
-      const offsetY = (existingPhotos % 3) * 30 - 30; // Spread vertically (-30 to +30)
-      const x = Math.max(0, Math.min((rect.width - width) / 2 + offsetX, rect.width - width));
-      const y = Math.max(0, Math.min((rect.height - height) / 2 + offsetY, rect.height - height));
+      const offsetX = (existingPhotos % 5) * 30 - 60;
+      const offsetY = (existingPhotos % 3) * 30 - 30;
+      const x = useEdgeOverlapLayout
+        ? Math.max(0, rowX)
+        : Math.max(0, Math.min((rect.width - width) / 2 + offsetX, rect.width - width));
+      const y = Math.max(0, Math.min(
+        (rect.height - height) / 2 + (useEdgeOverlapLayout ? (index % 2 === 0 ? -8 : 8) : offsetY),
+        rect.height - height,
+      ));
+
+      if (useEdgeOverlapLayout) {
+        rowX += width - scaledOverlap;
+      }
+
       addPhoto({
         id,
         url, // Note: In prod we might want to handle cleanup
@@ -155,7 +143,7 @@ export const MixerCanvas: React.FC = () => {
     if (isLoadingDemo) return;
     setIsLoadingDemo(true);
     try {
-      await onDrop(createDemoFiles());
+      await onDrop(await createDemoFiles());
     } finally {
       setIsLoadingDemo(false);
     }
