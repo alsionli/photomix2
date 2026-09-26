@@ -6,7 +6,7 @@ import { Knob } from './Knob';
 import { Visualizer } from './Visualizer';
 import { Play, Square } from 'lucide-react';
 
-const STYLES: MusicStyle[] = ['Groove', 'Lounge', 'Upbeat', 'Chill', 'Dreamy'];
+const STYLES: MusicStyle[] = ['Lounge', 'Groove', 'Upbeat', 'Chill', 'Dreamy'];
 
 export const StyleSelector: React.FC = () => {
   const { activeStyle, setStyle, isPlaying, togglePlay, masterVolume, setVolume, bpm, setBpm } = useMixerStore();
