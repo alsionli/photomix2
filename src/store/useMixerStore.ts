@@ -1,4 +1,5 @@
-import { create } from 'zustand';
+43
+  import { create } from 'zustand';
 
 export type MusicStyle = 'Groove' | 'Lounge' | 'Upbeat' | 'Chill' | 'Dreamy';
 
@@ -40,7 +41,7 @@ interface MixerState {
 }
 
 export const useMixerStore = create<MixerState>((set) => ({
-  activeStyle: 'Groove',
+  activeStyle: 'Lounge',
   isPlaying: false,
   masterVolume: -10,
   bpm: 120,
