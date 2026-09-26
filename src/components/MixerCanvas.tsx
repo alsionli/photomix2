@@ -21,6 +21,12 @@ const DEMO_PHOTOS = [
   },
 ] as const;
 
+const DEMO_LAYOUT = [
+  { x: 0.199, y: 0.361 },
+  { x: 0.419, y: 0.425 },
+  { x: 0.530, y: 0.198 },
+] as const;
+
 const createDemoFiles = async () => Promise.all(DEMO_PHOTOS.map(async ({ name, url }) => {
   const response = await fetch(url);
   if (!response.ok) throw new Error(`Failed to load demo photo: ${name}`);
@@ -72,6 +78,10 @@ export const MixerCanvas: React.FC = () => {
       return { file, id, url, aspectRatio, width, height };
     }));
 
+    const useDemoLayout = initialPhotoCount === 0
+      && preparedPhotos.length === DEMO_LAYOUT.length
+      && preparedPhotos.every((photo, index) => photo.file.name === DEMO_PHOTOS[index].name);
+
     // A fresh multi-photo mix reads best as a row of cards whose edges just
     // touch. Scale the row down on narrow canvases while preserving the overlap.
     const useEdgeOverlapLayout = initialPhotoCount === 0 && preparedPhotos.length > 1;
@@ -96,15 +106,19 @@ export const MixerCanvas: React.FC = () => {
       const existingPhotos = currentPhotos.length;
       const offsetX = (existingPhotos % 5) * 30 - 60;
       const offsetY = (existingPhotos % 3) * 30 - 30;
-      const x = useEdgeOverlapLayout
+      const x = useDemoLayout
+        ? Math.max(0, Math.min(rect.width * DEMO_LAYOUT[index].x, rect.width - width))
+        : useEdgeOverlapLayout
         ? Math.max(0, rowX)
         : Math.max(0, Math.min((rect.width - width) / 2 + offsetX, rect.width - width));
-      const y = Math.max(0, Math.min(
-        (rect.height - height) / 2 + (useEdgeOverlapLayout ? (index % 2 === 0 ? -8 : 8) : offsetY),
-        rect.height - height,
-      ));
+      const y = useDemoLayout
+        ? Math.max(0, Math.min(rect.height * DEMO_LAYOUT[index].y, rect.height - height))
+        : Math.max(0, Math.min(
+          (rect.height - height) / 2 + (useEdgeOverlapLayout ? (index % 2 === 0 ? -8 : 8) : offsetY),
+          rect.height - height,
+        ));
 
-      if (useEdgeOverlapLayout) {
+      if (useEdgeOverlapLayout && !useDemoLayout) {
         rowX += width - scaledOverlap;
       }
 
